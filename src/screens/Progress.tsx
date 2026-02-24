@@ -5,35 +5,61 @@ import { Activity, TrendingUp, Calendar, Target, Award, ChevronRight } from 'luc
 import { Card, Button, Typography, cn } from '../components/UI';
 import { MOCK_USER } from '../constants';
 
-const PAIN_DATA = [
-  { day: 'Mon', level: 7 },
-  { day: 'Tue', level: 6 },
-  { day: 'Wed', level: 8 },
-  { day: 'Thu', level: 5 },
-  { day: 'Fri', level: 4 },
-  { day: 'Sat', level: 3 },
-  { day: 'Sun', level: 2 },
-];
-
-const MOBILITY_DATA = [
-  { week: 'W1', progress: 20 },
-  { week: 'W2', progress: 35 },
-  { week: 'W3', progress: 55 },
-  { week: 'W4', progress: 80 },
-];
-
 import { Medication, DoseLog, Exercise, AuthUser } from '../types';
+import { calculateCurrentDay } from '../utils';
 
 interface ProgressScreenProps {
   user: AuthUser | null;
   medications: Medication[];
   doseLogs: DoseLog[];
   exercises: Exercise[];
+  painLogs: { date: string, level: number }[];
+  onLogPain: (level: number) => void;
 }
 
-export function ProgressScreen({ user, medications, doseLogs, exercises }: ProgressScreenProps) {
-  const currentDay = 4; // Mocked for now, but should be calculated
+export function ProgressScreen({ user, medications, doseLogs, exercises, painLogs, onLogPain }: ProgressScreenProps) {
+
+  const currentDay = calculateCurrentDay(user?.startDate);
   const totalDays = user?.recoveryDays || 30;
+
+  const generateMobilityData = () => {
+    const data = [];
+    const weeks = Math.ceil(totalDays / 7);
+    const currentWeek = Math.ceil(currentDay / 7);
+    
+    for (let i = 1; i <= weeks; i++) {
+      let progress = 0;
+      if (i < currentWeek) {
+        progress = Math.min(100, Math.round((i / weeks) * 100));
+      } else if (i === currentWeek) {
+        progress = Math.min(100, Math.round((currentDay / totalDays) * 100));
+      } else {
+        progress = 0;
+      }
+      data.push({ week: `W${i}`, progress });
+    }
+    return data;
+  };
+
+  const generatePainData = () => {
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const todayIndex = new Date().getDay();
+    const adjustedTodayIndex = todayIndex === 0 ? 6 : todayIndex - 1;
+    
+    return days.map((day, i) => {
+      const log = painLogs.find(p => p.date === day);
+      if (log) return { day, level: log.level };
+
+      let level = 0;
+      if (i <= adjustedTodayIndex) {
+        level = Math.max(1, Math.round(10 - (currentDay / totalDays) * 8 - (i * 0.2)));
+      }
+      return { day, level };
+    });
+  };
+
+  const dynamicMobilityData = generateMobilityData();
+  const dynamicPainData = generatePainData();
   
   const completedMeds = doseLogs.filter(log => {
     const logDate = new Date(log.timestamp).toDateString();
@@ -134,7 +160,7 @@ export function ProgressScreen({ user, medications, doseLogs, exercises }: Progr
         </div>
         <div className="h-48 w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={PAIN_DATA}>
+            <LineChart data={dynamicPainData}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
               <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#999' }} />
               <YAxis hide domain={[0, 10]} />
@@ -152,6 +178,25 @@ export function ProgressScreen({ user, medications, doseLogs, exercises }: Progr
               />
             </LineChart>
           </ResponsiveContainer>
+        </div>
+        <div className="pt-4 border-t border-gray-100 dark:border-white/5">
+          <Typography variant="caption" className="mb-3 block font-bold text-primary">Log Today's Pain Level (1-10)</Typography>
+          <div className="flex justify-between gap-2">
+            {[2, 4, 6, 8, 10].map((val) => (
+              <button
+                key={val}
+                onClick={() => onLogPain(val)}
+                className={cn(
+                  "flex-1 py-2 rounded-xl text-xs font-bold transition-all",
+                  painLogs.find(p => p.date === new Date().toLocaleDateString('en-US', { weekday: 'short' }))?.level === val
+                    ? "bg-primary text-white shadow-lg shadow-primary/20"
+                    : "bg-gray-100 dark:bg-white/5 text-gray-500 hover:bg-gray-200"
+                )}
+              >
+                {val}
+              </button>
+            ))}
+          </div>
         </div>
       </Card>
 

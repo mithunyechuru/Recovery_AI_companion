@@ -1,11 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
-  Home, Mic, Camera, Pill, Heart, Settings, User, Activity, ChevronRight, Bell, Calendar, Plus, Moon, Sun, Brain, Sparkles, LogOut, X, Check
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area
+} from 'recharts';
+import { 
+  Home, Mic, Camera, Pill, Heart, Settings, User, Activity, ChevronRight, Bell, Calendar, Plus, Brain, Sparkles, LogOut, X, Check, Shield, Play, Pause, RotateCcw
 } from 'lucide-react';
 import { Card, Button, Typography, cn } from './components/UI';
-import { MOCK_USER, MOCK_REMINDERS, DAILY_TIPS, MOCK_MEDICATIONS, MOCK_DOSE_LOGS } from './constants';
-import { Medication, DoseLog, Reminder, AuthUser, Exercise } from './types';
+import { MOCK_USER, MOCK_REMINDERS, DAILY_TIPS, MOCK_MEDICATIONS, MOCK_DOSE_LOGS, RECOVERY_EXERCISES } from './constants';
+import { Medication, DoseLog, Reminder, AuthUser, Exercise, ExerciseLog } from './types';
+import { calculateCurrentDay } from './utils';
 
 // Screens
 import { AssistantScreen } from './screens/Assistant';
@@ -139,12 +143,12 @@ function CaretakerHomeScreen({ onNavigate, user, reminders, allUsers, connection
             <div className="space-y-3">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-gray-400">Recovery Progress</span>
-                <span className="font-bold text-primary">Day 4 / {patient.recoveryDays}</span>
+                <span className="font-bold text-primary">Day {calculateCurrentDay(patient.startDate)} / {patient.recoveryDays}</span>
               </div>
               <div className="w-full bg-gray-100 dark:bg-white/5 h-2 rounded-full overflow-hidden">
                 <motion.div 
                   initial={{ width: 0 }}
-                  animate={{ width: `${Math.min(100, Math.round((4 / (patient.recoveryDays || 30)) * 100))}%` }}
+                  animate={{ width: `${Math.min(100, Math.round((calculateCurrentDay(patient.startDate) / (patient.recoveryDays || 30)) * 100))}%` }}
                   className="bg-primary h-full"
                 />
               </div>
@@ -243,7 +247,7 @@ function CaretakerHomeScreen({ onNavigate, user, reminders, allUsers, connection
                 <div className="grid grid-cols-3 gap-4">
                   <div className="text-center p-4 bg-gray-50 dark:bg-white/5 rounded-2xl">
                     <Typography variant="display" className="text-2xl text-primary">
-                      {Math.round(100 - (4 / (selectedPatient.recoveryDays || 30)) * 90)}%
+                      {Math.round(100 - (calculateCurrentDay(selectedPatient.startDate) / (selectedPatient.recoveryDays || 30)) * 90)}%
                     </Typography>
                     <Typography variant="caption">AI Score</Typography>
                   </div>
@@ -254,9 +258,52 @@ function CaretakerHomeScreen({ onNavigate, user, reminders, allUsers, connection
                     <Typography variant="caption">Mood</Typography>
                   </div>
                   <div className="text-center p-4 bg-gray-50 dark:bg-white/5 rounded-2xl">
-                    <Typography variant="display" className="text-2xl text-secondary">4</Typography>
+                    <Typography variant="display" className="text-2xl text-secondary">
+                      {calculateCurrentDay(selectedPatient.startDate)}
+                    </Typography>
                     <Typography variant="caption">Days In</Typography>
                   </div>
+                </div>
+              </div>
+
+              <div className="space-y-4 mb-8">
+                <Typography variant="display" className="text-xl">Recovery Trend</Typography>
+                <div className="h-[200px] w-full bg-gray-50 dark:bg-white/5 rounded-3xl p-4">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={(() => {
+                      const days = calculateCurrentDay(selectedPatient.startDate);
+                      const total = selectedPatient.recoveryDays || 30;
+                      return Array.from({ length: 7 }, (_, i) => {
+                        const dayOffset = i - 3;
+                        const targetDay = Math.max(1, Math.min(total, days + dayOffset));
+                        return {
+                          name: `Day ${targetDay}`,
+                          progress: Math.round((targetDay / total) * 100)
+                        };
+                      });
+                    })()}>
+                      <defs>
+                        <linearGradient id="colorProgress" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="var(--color-primary)" stopOpacity={0.3}/>
+                          <stop offset="95%" stopColor="var(--color-primary)" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.05)" />
+                      <XAxis dataKey="name" hide />
+                      <YAxis hide domain={[0, 100]} />
+                      <Tooltip 
+                        contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}
+                      />
+                      <Area 
+                        type="monotone" 
+                        dataKey="progress" 
+                        stroke="var(--color-primary)" 
+                        fillOpacity={1} 
+                        fill="url(#colorProgress)" 
+                        strokeWidth={3}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
                 </div>
               </div>
 
@@ -271,10 +318,110 @@ function CaretakerHomeScreen({ onNavigate, user, reminders, allUsers, connection
   );
 }
 
-function HomeScreen({ onNavigate, reminders, user, exercises, onToggleExercise }: { onNavigate: (screen: Screen) => void, reminders: Reminder[], user: AuthUser | null, exercises: Exercise[], onToggleExercise: (id: string) => void }) {
+function ExercisePlayer({ exercise, onComplete, onClose }: { exercise: Exercise, onComplete: () => void, onClose: () => void }) {
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(exercise.steps?.[0]?.duration || 5);
+  const [isActive, setIsActive] = useState(true);
+  const [repCount, setRepCount] = useState(0);
+  const totalReps = parseInt(exercise.reps) || 10;
+
+  useEffect(() => {
+    let timer: any;
+    if (isActive && timeLeft > 0) {
+      timer = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
+    } else if (isActive && timeLeft === 0) {
+      if (currentStepIndex < (exercise.steps?.length || 0) - 1) {
+        setCurrentStepIndex(prev => prev + 1);
+        setTimeLeft(exercise.steps?.[currentStepIndex + 1]?.duration || 5);
+      } else {
+        // Finished one rep
+        if (repCount < totalReps - 1) {
+          setRepCount(prev => prev + 1);
+          setCurrentStepIndex(0);
+          setTimeLeft(exercise.steps?.[0]?.duration || 5);
+        } else {
+          onComplete();
+        }
+      }
+    }
+    return () => clearInterval(timer);
+  }, [isActive, timeLeft, currentStepIndex, repCount, exercise.steps, totalReps, onComplete]);
+
+  const currentStep = exercise.steps?.[currentStepIndex];
+
+  return (
+    <div id="exercise-player-overlay" className="fixed inset-0 bg-black/60 backdrop-blur-md z-[400] flex items-center justify-center p-4">
+      <motion.div 
+        id="exercise-player-card"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-white dark:bg-dark-card w-full max-w-md rounded-[40px] p-8 shadow-2xl overflow-hidden relative"
+      >
+        <div className="absolute top-0 left-0 w-full h-2 bg-primary/20">
+          <motion.div 
+            id="exercise-progress-bar"
+            className="h-full bg-primary"
+            initial={{ width: 0 }}
+            animate={{ width: `${((repCount * (exercise.steps?.length || 1) + currentStepIndex) / (totalReps * (exercise.steps?.length || 1))) * 100}%` }}
+          />
+        </div>
+
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <Typography variant="display" className="text-2xl">{exercise.name}</Typography>
+            <Typography variant="caption">Rep {repCount + 1} of {totalReps}</Typography>
+          </div>
+          <Button id="close-exercise-player" variant="ghost" size="icon" onClick={onClose}>
+            <X className="w-6 h-6" />
+          </Button>
+        </div>
+
+        <div id="exercise-animation-container" className="aspect-square bg-gray-50 dark:bg-white/5 rounded-[32px] flex flex-col items-center justify-center mb-8 relative overflow-hidden">
+          <motion.div 
+            key={currentStepIndex}
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="text-center space-y-4"
+          >
+            <div className="w-32 h-32 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
+              <Activity className={cn("w-16 h-16 text-primary", isActive && "animate-pulse")} />
+            </div>
+            <Typography variant="display" className="text-3xl text-primary uppercase tracking-widest">{currentStep?.label}</Typography>
+          </motion.div>
+
+          <div className="absolute bottom-8 text-center w-full">
+            <Typography id="exercise-timer" variant="display" className="text-5xl font-mono">{timeLeft}s</Typography>
+          </div>
+        </div>
+
+        <div className="flex gap-4">
+          <Button 
+            id="toggle-exercise-pause"
+            variant="outline" 
+            className="flex-1 py-4 rounded-2xl"
+            onClick={() => setIsActive(!isActive)}
+          >
+            {isActive ? <Pause className="w-5 h-5 mr-2" /> : <Play className="w-5 h-5 mr-2" />}
+            {isActive ? 'Pause' : 'Resume'}
+          </Button>
+          <Button 
+            id="skip-exercise"
+            className="flex-1 py-4 rounded-2xl"
+            onClick={onComplete}
+          >
+            Skip
+          </Button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+function HomeScreen({ onNavigate, reminders, user, exercises, medications, doseLogs, painLogs, onToggleExercise, onStartExercise }: { onNavigate: (screen: Screen) => void, reminders: Reminder[], user: AuthUser | null, exercises: Exercise[], medications: Medication[], doseLogs: DoseLog[], painLogs: {date: string, level: number}[], onToggleExercise: (id: string) => void, onStartExercise: () => void }) {
   const [tipIndex, setTipIndex] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showCongrats, setShowCongrats] = useState(false);
+  const [showBubble, setShowBubble] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -290,20 +437,44 @@ function HomeScreen({ onNavigate, reminders, user, exercises, onToggleExercise }
     return "Good evening";
   };
 
-  const currentDay = 4;
+  const currentDay = calculateCurrentDay(user?.startDate);
   const totalDays = user?.recoveryDays || 30;
-  const completedToday = exercises.filter(ex => ex.completed).length;
-  const totalToday = exercises.length || 1;
   
-  // Cumulative progress: (Days passed - 1 + today's fraction) / total days
-  const progressPercent = Math.round(((currentDay - 1 + (completedToday / totalToday)) / totalDays) * 100);
+  const calculateProgress = () => {
+    if (!user?.startDate || !user?.recoveryDays) return 0;
+    const dayProgress = ((currentDay - 1) / totalDays) * 100;
+    
+    const today = new Date().toDateString();
+    
+    // Exercise compliance
+    const completedToday = exercises.filter(ex => ex.completed).length;
+    const totalToday = exercises.length || 1;
+    const exRatio = completedToday / totalToday;
 
-  // Check for 100% completion (last day and all tasks done)
+    // Medication compliance
+    const medsToday = medications.length;
+    const takenToday = doseLogs.filter(log => new Date(log.timestamp).toDateString() === today).length;
+    const medsRatio = medsToday > 0 ? Math.min(1, takenToday / medsToday) : 1;
+
+    // Pain logged compliance
+    const weekday = new Date().toLocaleDateString('en-US', { weekday: 'short' });
+    const painLogged = painLogs.some(log => log.date === weekday);
+    const painRatio = painLogged ? 1 : 0;
+
+    const todayCompliance = (0.4 * exRatio) + (0.4 * medsRatio) + (0.2 * painRatio);
+    const todayWeight = (1 / totalDays) * 100;
+    
+    const totalProgress = dayProgress + (todayWeight * todayCompliance);
+    return Math.min(100, Math.round(totalProgress));
+  };
+
+  const progressPercent = calculateProgress();
+
   useEffect(() => {
     if (progressPercent === 100 && !showCongrats) {
       setShowCongrats(true);
     }
-  }, [progressPercent]);
+  }, [progressPercent, showCongrats]);
 
   return (
     <div className="space-y-8 pb-20">
@@ -426,8 +597,36 @@ function HomeScreen({ onNavigate, reminders, user, exercises, onToggleExercise }
             <Card className="bg-primary text-white p-8 relative overflow-hidden border-none shadow-2xl shadow-primary/20">
               <div className="relative z-10 space-y-6">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center backdrop-blur-md">
+                  <div 
+                    className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center backdrop-blur-md cursor-pointer hover:bg-white/20 transition-all relative"
+                    onClick={() => setShowBubble(!showBubble)}
+                  >
                     <Activity className="w-5 h-5 text-accent" />
+                    
+                    <AnimatePresence>
+                      {showBubble && (
+                        <motion.div 
+                          initial={{ opacity: 0, scale: 0.8, y: 10 }}
+                          animate={{ opacity: 1, scale: 1, y: 0 }}
+                          exit={{ opacity: 0, scale: 0.8, y: 10 }}
+                          className="absolute bottom-full left-0 mb-4 w-48 p-4 bg-white dark:bg-dark-card rounded-2xl shadow-2xl z-50"
+                        >
+                          <Typography className="text-primary text-sm font-bold mb-2">Ready to start exercise?</Typography>
+                          <Button 
+                            size="sm" 
+                            className="w-full py-2 rounded-xl text-[10px]"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowBubble(false);
+                              onStartExercise();
+                            }}
+                          >
+                            Start Now
+                          </Button>
+                          <div className="absolute top-full left-4 w-4 h-4 bg-white dark:bg-dark-card rotate-45 -translate-y-2" />
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
                   <Typography variant="caption" className="text-white/70 uppercase tracking-widest font-bold text-[10px]">Recovery Day {currentDay}</Typography>
                 </div>
@@ -436,7 +635,9 @@ function HomeScreen({ onNavigate, reminders, user, exercises, onToggleExercise }
                     You're doing great!
                   </Typography>
                   <Typography className="text-white/80 text-lg">
-                    Keep up with your daily tasks to speed up recovery.
+                    {exercises.find(ex => !ex.completed) 
+                      ? `Your first exercise is: ${exercises.find(ex => !ex.completed)?.name}`
+                      : "All exercises completed for today!"}
                   </Typography>
                 </div>
                 
@@ -452,29 +653,6 @@ function HomeScreen({ onNavigate, reminders, user, exercises, onToggleExercise }
                       animate={{ width: `${progressPercent}%` }}
                       className="bg-accent h-full shadow-[0_0_15px_rgba(0,200,150,0.5)]"
                     />
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {exercises.map(ex => (
-                      <div 
-                        key={ex.id} 
-                        onClick={() => onToggleExercise(ex.id)}
-                        className={cn(
-                          "p-4 rounded-2xl cursor-pointer transition-all flex items-center justify-between",
-                          ex.completed ? "bg-white/20 border border-white/30" : "bg-white/10 border border-white/10 hover:bg-white/15"
-                        )}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className={cn(
-                            "w-6 h-6 rounded-full flex items-center justify-center border-2",
-                            ex.completed ? "bg-accent border-accent" : "border-white/30"
-                          )}>
-                            {ex.completed && <Check className="w-4 h-4 text-white" />}
-                          </div>
-                          <Typography className="font-medium text-sm">{ex.name}</Typography>
-                        </div>
-                        <Typography variant="caption" className="text-white/50">{ex.reps}</Typography>
-                      </div>
-                    ))}
                   </div>
                 </div>
               </div>
@@ -648,7 +826,6 @@ function HomeScreen({ onNavigate, reminders, user, exercises, onToggleExercise }
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<Screen>('home');
-  const [isDarkMode, setIsDarkMode] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userRole, setUserRole] = useState<'patient' | 'caretaker'>('patient');
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
@@ -657,18 +834,79 @@ export default function App() {
     return saved ? JSON.parse(saved) : [];
   });
 
-  const [medications, setMedications] = useState<Medication[]>(MOCK_MEDICATIONS);
-  const [doseLogs, setDoseLogs] = useState<DoseLog[]>(MOCK_DOSE_LOGS);
-  const [reminders, setReminders] = useState<Reminder[]>(MOCK_REMINDERS);
-  const [exercises, setExercises] = useState<Exercise[]>([
-    { id: '1', name: 'Knee Extensions', reps: '10 reps', sets: 3, completed: false },
-    { id: '2', name: 'Ankle Pumps', reps: '20 reps', sets: 2, completed: false }
-  ]);
+  const [medications, setMedications] = useState<Medication[]>([]);
+  const [doseLogs, setDoseLogs] = useState<DoseLog[]>([]);
+  const [reminders, setReminders] = useState<Reminder[]>([]);
+  const [exerciseLogs, setExerciseLogs] = useState<ExerciseLog[]>(() => {
+    const saved = localStorage.getItem('exercise_logs');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [exercises, setExercises] = useState<Exercise[]>([]);
+  const [activeExerciseId, setActiveExerciseId] = useState<string | null>(null);
+
+  useEffect(() => {
+    localStorage.setItem('exercise_logs', JSON.stringify(exerciseLogs));
+  }, [exerciseLogs]);
+
+  useEffect(() => {
+    if (currentUser) {
+      const recoveryType = currentUser.recoveryFrom || 'General';
+      const defaultEx = RECOVERY_EXERCISES[recoveryType] || RECOVERY_EXERCISES['General'];
+      
+      // Check which ones are completed today from logs
+      const today = new Date().toDateString();
+      const completedTodayIds = exerciseLogs
+        .filter(log => new Date(log.timestamp).toDateString() === today)
+        .map(log => log.exerciseId);
+
+      setExercises(defaultEx.map(ex => ({
+        ...ex,
+        completed: completedTodayIds.includes(ex.id)
+      })));
+    }
+  }, [currentUser, exerciseLogs]);
+
+  const handleToggleExercise = useCallback((id: string) => {
+    const exercise = exercises.find(ex => ex.id === id);
+    if (!exercise) return;
+
+    if (!exercise.completed) {
+      const newLog: ExerciseLog = {
+        id: Math.random().toString(36).substr(2, 9),
+        exerciseId: id,
+        timestamp: new Date().toISOString()
+      };
+      setExerciseLogs(prev => [...prev, newLog]);
+    } else {
+      setExerciseLogs(prev => prev.filter(log => {
+        const isToday = new Date(log.timestamp).toDateString() === new Date().toDateString();
+        return !(log.exerciseId === id && isToday);
+      }));
+    }
+  }, [exercises]);
+
+  const handleCompleteExercise = useCallback((id: string) => {
+    handleToggleExercise(id);
+    const nextEx = exercises.find(ex => !ex.completed && ex.id !== id);
+    if (nextEx) {
+      setActiveExerciseId(nextEx.id);
+    } else {
+      setActiveExerciseId(null);
+    }
+  }, [exercises, handleToggleExercise]);
   const [connections, setConnections] = useState<{ caretakerEmail: string, patientEmail: string }[]>(() => {
     const saved = localStorage.getItem('user_connections');
     return saved ? JSON.parse(saved) : [];
   });
   const [activeNotifications, setActiveNotifications] = useState<Reminder[]>([]);
+  const [painLogs, setPainLogs] = useState<{ date: string, level: number }[]>(() => {
+    const saved = localStorage.getItem('pain_logs');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('pain_logs', JSON.stringify(painLogs));
+  }, [painLogs]);
 
   useEffect(() => {
     localStorage.setItem('user_connections', JSON.stringify(connections));
@@ -677,6 +915,38 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('neuronova_users', JSON.stringify(users));
   }, [users]);
+
+  useEffect(() => {
+    const cleanupCompletedUsers = () => {
+      const now = new Date();
+      const updatedUsers = users.filter(u => {
+        if (u.role === 'patient' && u.startDate && u.recoveryDays) {
+          const start = new Date(u.startDate);
+          const diffTime = Math.abs(now.getTime() - start.getTime());
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          // If recovery is complete, delete data automatically
+          return diffDays <= u.recoveryDays;
+        }
+        return true;
+      });
+
+      if (updatedUsers.length !== users.length) {
+        setUsers(updatedUsers);
+        const activeEmails = updatedUsers.map(u => u.email);
+        setConnections(prev => prev.filter(c => 
+          activeEmails.includes(c.patientEmail) && activeEmails.includes(c.caretakerEmail)
+        ));
+        
+        if (currentUser && !activeEmails.includes(currentUser.email)) {
+          handleLogout();
+        }
+      }
+    };
+
+    const interval = setInterval(cleanupCompletedUsers, 60000); // Check every minute
+    cleanupCompletedUsers();
+    return () => clearInterval(interval);
+  }, [users, currentUser]);
 
   useEffect(() => {
     const checkReminders = () => {
@@ -706,7 +976,11 @@ export default function App() {
 
   const handleSignUp = (user: AuthUser) => {
     const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-    const newUser = { ...user, connectionCode: code };
+    const newUser = { 
+      ...user, 
+      connectionCode: code, 
+      startDate: new Date().toISOString() 
+    };
     setUsers([...users, newUser]);
     // Auto login after sign up
     handleLogin(newUser);
@@ -749,12 +1023,6 @@ export default function App() {
     }
   };
 
-  const handleToggleExercise = (id: string) => {
-    setExercises(exercises.map(ex => 
-      ex.id === id ? { ...ex, completed: !ex.completed } : ex
-    ));
-  };
-
   if (!isAuthenticated) {
     return <LoginScreen onLogin={handleLogin} onSignUp={handleSignUp} users={users} />;
   }
@@ -763,13 +1031,33 @@ export default function App() {
     switch (currentScreen) {
       case 'home': 
         return userRole === 'patient' 
-          ? <HomeScreen 
-              onNavigate={setCurrentScreen} 
-              reminders={reminders} 
-              user={currentUser} 
-              exercises={exercises}
-              onToggleExercise={handleToggleExercise}
-            />
+          ? (
+            <>
+              <HomeScreen 
+                onNavigate={setCurrentScreen} 
+                reminders={reminders} 
+                user={currentUser} 
+                exercises={exercises}
+                medications={medications}
+                doseLogs={doseLogs}
+                painLogs={painLogs}
+                onToggleExercise={handleToggleExercise}
+                onStartExercise={() => {
+                  const firstIncomplete = exercises.find(ex => !ex.completed);
+                  if (firstIncomplete) setActiveExerciseId(firstIncomplete.id);
+                }}
+              />
+              <AnimatePresence>
+                {activeExerciseId && (
+                  <ExercisePlayer 
+                    exercise={exercises.find(ex => ex.id === activeExerciseId)!}
+                    onComplete={() => handleCompleteExercise(activeExerciseId)}
+                    onClose={() => setActiveExerciseId(null)}
+                  />
+                )}
+              </AnimatePresence>
+            </>
+          )
           : <CaretakerHomeScreen 
               onNavigate={setCurrentScreen} 
               user={currentUser} 
@@ -795,16 +1083,51 @@ export default function App() {
         const caretakerConnection = connections.find(c => c.patientEmail === currentUser?.email);
         const caretaker = caretakerConnection ? users.find(u => u.email === caretakerConnection.caretakerEmail) : null;
         return <CaregiverScreen caretaker={caretaker || null} />;
-      case 'progress': return <ProgressScreen user={currentUser} medications={medications} doseLogs={doseLogs} exercises={exercises} />;
+      case 'progress': return (
+        <ProgressScreen 
+          user={currentUser} 
+          medications={medications} 
+          doseLogs={doseLogs} 
+          exercises={exercises}
+          painLogs={painLogs}
+          onLogPain={(level) => {
+            const today = new Date().toLocaleDateString('en-US', { weekday: 'short' });
+            setPainLogs(prev => {
+              const filtered = prev.filter(p => p.date !== today);
+              return [...filtered, { date: today, level }];
+            });
+          }}
+        />
+      );
       case 'profile': return <ProfileScreen user={currentUser} reminders={reminders} onLogout={handleLogout} />;
       default: return userRole === 'patient' 
-        ? <HomeScreen 
-            onNavigate={setCurrentScreen} 
-            reminders={reminders} 
-            user={currentUser} 
-            exercises={exercises}
-            onToggleExercise={handleToggleExercise}
-          />
+        ? (
+          <>
+            <HomeScreen 
+              onNavigate={setCurrentScreen} 
+              reminders={reminders} 
+              user={currentUser} 
+              exercises={exercises}
+              medications={medications}
+              doseLogs={doseLogs}
+              painLogs={painLogs}
+              onToggleExercise={handleToggleExercise}
+              onStartExercise={() => {
+                const firstIncomplete = exercises.find(ex => !ex.completed);
+                if (firstIncomplete) setActiveExerciseId(firstIncomplete.id);
+              }}
+            />
+            <AnimatePresence>
+              {activeExerciseId && (
+                <ExercisePlayer 
+                  exercise={exercises.find(ex => ex.id === activeExerciseId)!}
+                  onComplete={() => handleCompleteExercise(activeExerciseId)}
+                  onClose={() => setActiveExerciseId(null)}
+                />
+              )}
+            </AnimatePresence>
+          </>
+        )
         : <CaretakerHomeScreen 
             onNavigate={setCurrentScreen} 
             user={currentUser} 
@@ -821,7 +1144,7 @@ export default function App() {
   };
 
   return (
-    <div className={cn("min-h-screen transition-colors duration-300 flex", isDarkMode ? "dark bg-dark-surface text-dark-text" : "bg-surface text-gray-900")}>
+    <div className={cn("min-h-screen transition-colors duration-300 flex bg-surface text-gray-900")}>
       
       {/* Notifications Overlay */}
       <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[200] w-full max-w-md space-y-2 px-4">
@@ -875,15 +1198,8 @@ export default function App() {
         <div className="px-4 mt-auto space-y-2">
           <SidebarItem active={currentScreen === 'profile'} onClick={() => setCurrentScreen('profile')} icon={Settings} label="Settings" />
           <button 
-            onClick={() => setIsDarkMode(!isDarkMode)}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5 transition-all"
-          >
-            {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-            <span className="hidden lg:block font-medium">{isDarkMode ? 'Light Mode' : 'Dark Mode'}</span>
-          </button>
-          <button 
             onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-all"
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-400 hover:bg-red-50 transition-all"
           >
             <LogOut className="w-5 h-5" />
             <span className="hidden lg:block font-medium">Logout</span>

@@ -4,6 +4,7 @@ import { Card, Button, Typography, cn } from '../components/UI';
 import { MOCK_USER } from '../constants';
 import { AuthUser, Reminder } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
+import { calculateCurrentDay } from '../utils';
 
 interface ProfileProps {
   user: AuthUser | null;
@@ -14,6 +15,7 @@ interface ProfileProps {
 export function ProfileScreen({ user, reminders, onLogout }: ProfileProps) {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showPersonalInfo, setShowPersonalInfo] = useState(false);
+  const [showPrivacy, setShowPrivacy] = useState(false);
 
   const displayName = user?.name || MOCK_USER.name;
   const displayInjury = user?.recoveryFrom || MOCK_USER.injuryType;
@@ -26,9 +28,6 @@ export function ProfileScreen({ user, reminders, onLogout }: ProfileProps) {
           <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center border-4 border-white dark:border-dark-card shadow-xl overflow-hidden text-5xl">
             {user?.avatar || <User className="w-12 h-12 text-primary" />}
           </div>
-          <button className="absolute bottom-0 right-0 bg-primary text-white p-2 rounded-full shadow-lg border-2 border-white dark:border-dark-card">
-            <Camera className="w-4 h-4" />
-          </button>
         </div>
         <div className="text-center">
           <Typography variant="display" className="text-2xl">{displayName}</Typography>
@@ -47,7 +46,7 @@ export function ProfileScreen({ user, reminders, onLogout }: ProfileProps) {
           <Typography variant="caption">Total Days</Typography>
         </div>
         <div className="text-center border-x border-black/5 dark:border-white/5">
-          <Typography variant="display" className="text-xl">4</Typography>
+          <Typography variant="display" className="text-xl">{calculateCurrentDay(user?.startDate)}</Typography>
           <Typography variant="caption">Days In</Typography>
         </div>
         <div className="text-center">
@@ -62,8 +61,7 @@ export function ProfileScreen({ user, reminders, onLogout }: ProfileProps) {
           {[
             { icon: User, title: "Personal Information", color: "text-blue-500", onClick: () => setShowPersonalInfo(true) },
             { icon: Bell, title: "Notifications", color: "text-orange-500", onClick: () => setShowNotifications(true) },
-            { icon: Shield, title: "Privacy & Data", color: "text-accent", onClick: () => {} },
-            { icon: HelpCircle, title: "Support Center", color: "text-purple-500", onClick: () => {} },
+            { icon: Shield, title: "Privacy & Data", color: "text-accent", onClick: () => setShowPrivacy(true) },
           ].map((item, i) => (
             <Card 
               key={i} 
@@ -78,22 +76,6 @@ export function ProfileScreen({ user, reminders, onLogout }: ProfileProps) {
             </Card>
           ))}
         </div>
-      </div>
-
-      <div className="space-y-4">
-        <Typography variant="display" className="text-lg">Recovery Protocol</Typography>
-        <Card className="flex items-center justify-between p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-              <Edit2 className="w-5 h-5" />
-            </div>
-            <div>
-              <Typography className="font-medium">{displayInjury} Post-Op Protocol</Typography>
-              <Typography variant="caption">Standard plan</Typography>
-            </div>
-          </div>
-          <Button variant="ghost" size="sm" className="text-primary">Change</Button>
-        </Card>
       </div>
 
       <Button 
@@ -169,6 +151,48 @@ export function ProfileScreen({ user, reminders, onLogout }: ProfileProps) {
               </div>
               <div className="p-4 bg-gray-50 dark:bg-white/5">
                 <Button className="w-full" onClick={() => setShowPersonalInfo(false)}>Close</Button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showPrivacy && (
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="bg-white dark:bg-dark-card w-full max-w-md rounded-[32px] p-8 shadow-2xl"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <Typography variant="display" className="text-2xl">Privacy & Data</Typography>
+                <Button variant="ghost" size="icon" onClick={() => setShowPrivacy(false)}>
+                  <X className="w-6 h-6" />
+                </Button>
+              </div>
+              <div className="space-y-6">
+                <div className="p-4 bg-accent/10 rounded-2xl flex gap-4">
+                  <Shield className="w-6 h-6 text-accent shrink-0" />
+                  <div>
+                    <Typography className="font-bold mb-1">Auto-Deletion Policy</Typography>
+                    <Typography variant="caption" className="text-gray-600 dark:text-gray-400">
+                      To protect your privacy, all recovery data and account information will be automatically deleted once your {user?.recoveryDays}-day recovery period is complete.
+                    </Typography>
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <Typography className="text-sm font-medium">Your Data Control</Typography>
+                  <Typography variant="caption" className="block">
+                    • Your data is stored locally on this device.<br/>
+                    • Only connected caregivers can view your progress.<br/>
+                    • You can revoke caregiver access at any time.
+                  </Typography>
+                </div>
+                <Button className="w-full py-4 rounded-xl bg-primary text-white" onClick={() => setShowPrivacy(false)}>
+                  I Understand
+                </Button>
               </div>
             </motion.div>
           </div>

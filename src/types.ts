@@ -40,12 +40,25 @@ export interface Reminder {
   completed: boolean;
 }
 
+export interface ExerciseStep {
+  label: string;
+  duration: number; // in seconds
+}
+
 export interface Exercise {
   id: string;
   name: string;
   reps: string;
   sets: number;
   completed: boolean;
+  steps?: ExerciseStep[];
+  type?: string; // e.g., 'hand', 'knee', 'ankle'
+}
+
+export interface ExerciseLog {
+  id: string;
+  exerciseId: string;
+  timestamp: string;
 }
 
 export interface AuthUser {
@@ -58,6 +71,7 @@ export interface AuthUser {
   initialMood?: Mood;
   connectionCode?: string;
   avatar?: string;
+  startDate?: string;
 }
 
 export interface UserProfile {

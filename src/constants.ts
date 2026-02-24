@@ -1,4 +1,4 @@
-import { UserProfile, Medication, Reminder, MoodEntry, DoseLog } from './types';
+import { UserProfile, Medication, Reminder, MoodEntry, DoseLog, Exercise } from './types';
 
 export const MOCK_USER: UserProfile = {
   name: "Alex",
@@ -39,3 +39,51 @@ export const DAILY_TIPS = [
   "It's okay to feel frustrated. Recovery isn't a straight line.",
   "Celebrate the small wins—like standing up without help for the first time!"
 ];
+
+export const RECOVERY_EXERCISES: Record<string, Exercise[]> = {
+  'Hand Surgery': [
+    { 
+      id: 'h1', name: 'Hand Clenches', reps: '10 reps', sets: 3, completed: false, type: 'hand',
+      steps: [
+        { label: 'Close Hand', duration: 3 },
+        { label: 'Hold', duration: 2 },
+        { label: 'Open Hand', duration: 3 }
+      ]
+    },
+    { 
+      id: 'h2', name: 'Finger Stretches', reps: '5 reps', sets: 2, completed: false, type: 'hand',
+      steps: [
+        { label: 'Stretch Fingers', duration: 5 },
+        { label: 'Relax', duration: 3 }
+      ]
+    }
+  ],
+  'Knee Replacement': [
+    { 
+      id: 'k1', name: 'Knee Extensions', reps: '10 reps', sets: 3, completed: false, type: 'knee',
+      steps: [
+        { label: 'Extend Leg', duration: 4 },
+        { label: 'Hold', duration: 2 },
+        { label: 'Lower Leg', duration: 4 }
+      ]
+    },
+    { 
+      id: 'k2', name: 'Ankle Pumps', reps: '20 reps', sets: 2, completed: false, type: 'knee',
+      steps: [
+        { label: 'Flex Ankle', duration: 3 },
+        { label: 'Hold', duration: 1 },
+        { label: 'Point Toes', duration: 3 }
+      ]
+    }
+  ],
+  'General': [
+    { 
+      id: 'g1', name: 'Deep Breathing', reps: '10 reps', sets: 3, completed: false, type: 'general',
+      steps: [
+        { label: 'Inhale Deeply', duration: 4 },
+        { label: 'Hold Breath', duration: 4 },
+        { label: 'Exhale Slowly', duration: 6 }
+      ]
+    }
+  ]
+};
