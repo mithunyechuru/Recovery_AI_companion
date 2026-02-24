@@ -1,0 +1,8 @@
+{
+  "name": "Remix: NeuroNova",
+  "description": "AI-Powered Temporary Recovery Companion for short-term disabilities. Features symptom analysis, medication tracking, and mental wellness support.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}

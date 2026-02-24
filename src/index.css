@@ -1,0 +1,50 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Poppins", sans-serif;
+  --color-primary: #0A2463;
+  --color-secondary: #3E92CC;
+  --color-accent: #00C896;
+  --color-surface: #F0F4FF;
+  --color-warning: #FF6B6B;
+  --color-navy-dark: #1A1A2E;
+  --color-dark-surface: #0F172A;
+  --color-dark-card: #1E293B;
+  --color-dark-text: #F8FAFC;
+  --color-dark-border: #334155;
+}
+
+@layer base {
+  body {
+    @apply font-sans antialiased;
+  }
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.bg-mesh {
+  background-color: #F0F4FF;
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(10, 36, 99, 0.05) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(0, 200, 150, 0.05) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(62, 146, 204, 0.05) 0px, transparent 50%),
+    radial-gradient(at 0% 100%, rgba(255, 107, 107, 0.05) 0px, transparent 50%);
+}
