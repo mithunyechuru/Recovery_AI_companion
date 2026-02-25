@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
+import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area
 } from 'recharts';
-import { 
+import {
   Home, Mic, Camera, Pill, Heart, Settings, User, Activity, ChevronRight, Bell, Calendar, Plus, Brain, Sparkles, LogOut, X, Check, Shield, Play, Pause, RotateCcw
 } from 'lucide-react';
 import { Card, Button, Typography, cn } from './components/UI';
@@ -24,13 +24,49 @@ import { LoginScreen } from './screens/Login';
 type Screen = 'home' | 'assistant' | 'analyzer' | 'meds' | 'elevate' | 'caregiver' | 'progress' | 'profile';
 
 function CaretakerHomeScreen({ onNavigate, user, reminders, allUsers, connections, onAddConnection }: { onNavigate: (screen: Screen) => void, user: AuthUser | null, reminders: Reminder[], allUsers: AuthUser[], connections: { caretakerEmail: string, patientEmail: string }[], onAddConnection: (patientEmail: string) => void }) {
-  const patients = allUsers.filter(u => 
+  const patients = allUsers.filter(u =>
     connections.some(c => c.caretakerEmail === user?.email && c.patientEmail === u.email)
   );
   const [showAddPatient, setShowAddPatient] = useState(false);
   const [patientCode, setPatientCode] = useState('');
   const [showNotifications, setShowNotifications] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<AuthUser | null>(null);
+  const [patientMeds, setPatientMeds] = useState<Medication[]>([]);
+  const [patientLogs, setPatientLogs] = useState<DoseLog[]>([]);
+
+  useEffect(() => {
+    if (selectedPatient) {
+      const savedMeds = localStorage.getItem(`neuronova_meds_${selectedPatient.email}`);
+      const savedLogs = localStorage.getItem(`neuronova_logs_${selectedPatient.email}`);
+      if (savedMeds) setPatientMeds(JSON.parse(savedMeds));
+      else setPatientMeds([]);
+      if (savedLogs) setPatientLogs(JSON.parse(savedLogs));
+      else setPatientLogs([]);
+    }
+  }, [selectedPatient]);
+
+  const handlePatientTakeDose = (medId: string) => {
+    if (!selectedPatient) return;
+
+    const med = patientMeds.find(m => m.id === medId);
+    if (!med) return;
+
+    const newLog: DoseLog = {
+      id: Math.random().toString(36).substr(2, 9),
+      medicationId: medId,
+      medicationName: med.name,
+      timestamp: new Date().toISOString(),
+      taken: true
+    };
+
+    const updatedLogs = [newLog, ...patientLogs];
+    setPatientLogs(updatedLogs);
+    localStorage.setItem(`neuronova_logs_${selectedPatient.email}`, JSON.stringify(updatedLogs));
+
+    // Also update reminders for the patient if they are currently logged in (not likely, but let's keep it simple and just update logs for now as requested)
+    // The requirement says "updated in both the portals", which usually means syncing data.
+    // Since we use localStorage with user-specific keys, updating the patient's log key is sufficient.
+  };
 
   const addPatient = () => {
     if (patientCode) {
@@ -57,15 +93,15 @@ function CaretakerHomeScreen({ onNavigate, user, reminders, allUsers, connection
           <Typography variant="display" className="text-3xl lg:text-4xl">Caretaker Portal</Typography>
         </div>
         <div className="flex items-center gap-3">
-          <Button 
-            variant="ghost" 
-            size="icon" 
+          <Button
+            variant="ghost"
+            size="icon"
             className="bg-white dark:bg-dark-card shadow-sm"
             onClick={() => setShowNotifications(true)}
           >
             <Bell className="w-5 h-5" />
           </Button>
-          <Button 
+          <Button
             className="bg-primary text-white rounded-xl px-6"
             onClick={() => setShowAddPatient(true)}
           >
@@ -77,7 +113,7 @@ function CaretakerHomeScreen({ onNavigate, user, reminders, allUsers, connection
       <AnimatePresence>
         {showNotifications && (
           <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
@@ -121,8 +157,8 @@ function CaretakerHomeScreen({ onNavigate, user, reminders, allUsers, connection
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {patients.map(patient => (
-          <Card 
-            key={patient.email} 
+          <Card
+            key={patient.email}
             className="p-6 hover:shadow-xl transition-all cursor-pointer group border-none bg-white dark:bg-dark-card"
             onClick={() => setSelectedPatient(patient)}
           >
@@ -139,14 +175,14 @@ function CaretakerHomeScreen({ onNavigate, user, reminders, allUsers, connection
                 <Typography variant="caption" className="text-accent font-bold">{patient.recoveryFrom || 'Recovering'}</Typography>
               </div>
             </div>
-            
+
             <div className="space-y-3">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-gray-400">Recovery Progress</span>
                 <span className="font-bold text-primary">Day {calculateCurrentDay(patient.startDate)} / {patient.recoveryDays}</span>
               </div>
               <div className="w-full bg-gray-100 dark:bg-white/5 h-2 rounded-full overflow-hidden">
-                <motion.div 
+                <motion.div
                   initial={{ width: 0 }}
                   animate={{ width: `${Math.min(100, Math.round((calculateCurrentDay(patient.startDate) / (patient.recoveryDays || 30)) * 100))}%` }}
                   className="bg-primary h-full"
@@ -164,7 +200,7 @@ function CaretakerHomeScreen({ onNavigate, user, reminders, allUsers, connection
       <AnimatePresence>
         {showAddPatient && (
           <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.9 }}
@@ -174,8 +210,8 @@ function CaretakerHomeScreen({ onNavigate, user, reminders, allUsers, connection
               <div className="space-y-4">
                 <div>
                   <label className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-2 block">Connection Code</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     value={patientCode}
                     onChange={(e) => setPatientCode(e.target.value)}
                     placeholder="Enter 6-digit code (e.g. APXCHF)"
@@ -183,14 +219,14 @@ function CaretakerHomeScreen({ onNavigate, user, reminders, allUsers, connection
                   />
                 </div>
                 <div className="flex gap-3 mt-8">
-                  <Button 
-                    variant="ghost" 
+                  <Button
+                    variant="ghost"
                     className="flex-1 py-4 rounded-xl"
                     onClick={() => setShowAddPatient(false)}
                   >
                     Cancel
                   </Button>
-                  <Button 
+                  <Button
                     className="flex-1 bg-primary text-white py-4 rounded-xl shadow-lg shadow-primary/20"
                     onClick={addPatient}
                   >
@@ -206,7 +242,7 @@ function CaretakerHomeScreen({ onNavigate, user, reminders, allUsers, connection
       <AnimatePresence>
         {selectedPatient && (
           <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.9 }}
@@ -242,74 +278,114 @@ function CaretakerHomeScreen({ onNavigate, user, reminders, allUsers, connection
                 </Card>
               </div>
 
-              <div className="space-y-6">
-                <Typography variant="display" className="text-xl">Patient Stats</Typography>
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="text-center p-4 bg-gray-50 dark:bg-white/5 rounded-2xl">
-                    <Typography variant="display" className="text-2xl text-primary">
-                      {Math.round(100 - (calculateCurrentDay(selectedPatient.startDate) / (selectedPatient.recoveryDays || 30)) * 90)}%
-                    </Typography>
-                    <Typography variant="caption">AI Score</Typography>
-                  </div>
-                  <div className="text-center p-4 bg-gray-50 dark:bg-white/5 rounded-2xl">
-                    <Typography variant="display" className="text-2xl text-accent">
-                      {selectedPatient.initialMood || 'Good'}
-                    </Typography>
-                    <Typography variant="caption">Mood</Typography>
-                  </div>
-                  <div className="text-center p-4 bg-gray-50 dark:bg-white/5 rounded-2xl">
-                    <Typography variant="display" className="text-2xl text-secondary">
-                      {calculateCurrentDay(selectedPatient.startDate)}
-                    </Typography>
-                    <Typography variant="caption">Days In</Typography>
+              <div className="space-y-8">
+                <div className="space-y-4">
+                  <Typography variant="display" className="text-xl">Recovery Trend</Typography>
+                  <div className="h-[200px] w-full bg-gray-50 dark:bg-white/5 rounded-3xl p-4">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={(() => {
+                        const days = calculateCurrentDay(selectedPatient.startDate);
+                        const total = selectedPatient.recoveryDays || 30;
+                        return Array.from({ length: 7 }, (_, i) => {
+                          const dayOffset = i - 3;
+                          const targetDay = Math.max(1, Math.min(total, days + dayOffset));
+                          return {
+                            name: `Day ${targetDay}`,
+                            progress: Math.round((targetDay / total) * 100)
+                          };
+                        });
+                      })()}>
+                        <defs>
+                          <linearGradient id="colorProgress" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="var(--color-primary)" stopOpacity={0.3} />
+                            <stop offset="95%" stopColor="var(--color-primary)" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.05)" />
+                        <XAxis dataKey="name" hide />
+                        <YAxis hide domain={[0, 100]} />
+                        <Tooltip
+                          contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}
+                        />
+                        <Area
+                          type="monotone"
+                          dataKey="progress"
+                          stroke="var(--color-primary)"
+                          fillOpacity={1}
+                          fill="url(#colorProgress)"
+                          strokeWidth={3}
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
                   </div>
                 </div>
-              </div>
 
-              <div className="space-y-4 mb-8">
-                <Typography variant="display" className="text-xl">Recovery Trend</Typography>
-                <div className="h-[200px] w-full bg-gray-50 dark:bg-white/5 rounded-3xl p-4">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={(() => {
-                      const days = calculateCurrentDay(selectedPatient.startDate);
-                      const total = selectedPatient.recoveryDays || 30;
-                      return Array.from({ length: 7 }, (_, i) => {
-                        const dayOffset = i - 3;
-                        const targetDay = Math.max(1, Math.min(total, days + dayOffset));
-                        return {
-                          name: `Day ${targetDay}`,
-                          progress: Math.round((targetDay / total) * 100)
-                        };
-                      });
-                    })()}>
-                      <defs>
-                        <linearGradient id="colorProgress" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="var(--color-primary)" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="var(--color-primary)" stopOpacity={0}/>
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.05)" />
-                      <XAxis dataKey="name" hide />
-                      <YAxis hide domain={[0, 100]} />
-                      <Tooltip 
-                        contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}
-                      />
-                      <Area 
-                        type="monotone" 
-                        dataKey="progress" 
-                        stroke="var(--color-primary)" 
-                        fillOpacity={1} 
-                        fill="url(#colorProgress)" 
-                        strokeWidth={3}
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
+                <div className="space-y-6 border-t border-black/5 dark:border-white/5 pt-8">
+                  <div className="flex items-center justify-between">
+                    <Typography variant="display" className="text-xl">Medication Tracking</Typography>
+                    <Typography variant="caption" className="text-gray-400">
+                      {patientLogs.filter(l => new Date(l.timestamp).toDateString() === new Date().toDateString()).length} doses taken today
+                    </Typography>
+                  </div>
+
+                  <div className="space-y-4">
+                    {patientMeds.length > 0 ? (
+                      patientMeds.map(med => {
+                        const today = new Date().toDateString();
+                        const takenToday = patientLogs.some(l => l.medicationId === med.id && new Date(l.timestamp).toDateString() === today);
+
+                        return (
+                          <Card key={med.id} className="flex items-center gap-4 p-4 bg-gray-50/50 dark:bg-white/5 border-none">
+                            <div className={cn(
+                              "w-12 h-12 rounded-2xl flex items-center justify-center transition-colors",
+                              takenToday ? "bg-accent/10 text-accent" : "bg-primary/10 text-primary"
+                            )}>
+                              <Pill className="w-6 h-6" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <Typography className={cn("font-bold truncate", takenToday && "opacity-40")}>{med.name}</Typography>
+                              <Typography variant="caption">{med.dose} • {med.schedule}</Typography>
+                            </div>
+                            {takenToday ? (
+                              <div className="px-3 py-1 bg-accent/10 text-accent rounded-lg text-xs font-bold uppercase">Taken</div>
+                            ) : (
+                              <Button
+                                size="sm"
+                                className="bg-primary text-white text-[10px] px-3 py-1 rounded-lg"
+                                onClick={() => handlePatientTakeDose(med.id)}
+                              >
+                                Mark Taken
+                              </Button>
+                            )}
+                          </Card>
+                        );
+                      })
+                    ) : (
+                      <div className="text-center py-6 bg-gray-50 dark:bg-white/5 rounded-2xl border-2 border-dashed border-gray-100 dark:border-white/10">
+                        <Typography variant="caption">No medications prescribed yet</Typography>
+                      </div>
+                    )}
+                  </div>
+
+                  {patientLogs.length > 0 && (
+                    <div className="space-y-3">
+                      <Typography variant="caption" className="font-bold uppercase tracking-wider text-gray-400">Recent History</Typography>
+                      <div className="space-y-2">
+                        {patientLogs.slice(0, 3).map(log => (
+                          <div key={log.id} className="flex justify-between items-center text-sm p-3 bg-white dark:bg-dark-surface rounded-xl border border-black/5 dark:border-white/5">
+                            <Typography className="font-medium text-gray-600 dark:text-gray-300">{log.medicationName}</Typography>
+                            <Typography variant="caption">{new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Typography>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
 
-              <Button className="w-full mt-8 py-4 rounded-xl" onClick={() => setSelectedPatient(null)}>
-                Close Dashboard
-              </Button>
+                <Button className="w-full mt-8 py-4 rounded-xl" onClick={() => setSelectedPatient(null)}>
+                  Close Dashboard
+                </Button>
+              </div>
             </motion.div>
           </div>
         )}
@@ -351,14 +427,14 @@ function ExercisePlayer({ exercise, onComplete, onClose }: { exercise: Exercise,
 
   return (
     <div id="exercise-player-overlay" className="fixed inset-0 bg-black/60 backdrop-blur-md z-[400] flex items-center justify-center p-4">
-      <motion.div 
+      <motion.div
         id="exercise-player-card"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="bg-white dark:bg-dark-card w-full max-w-md rounded-[40px] p-8 shadow-2xl overflow-hidden relative"
       >
         <div className="absolute top-0 left-0 w-full h-2 bg-primary/20">
-          <motion.div 
+          <motion.div
             id="exercise-progress-bar"
             className="h-full bg-primary"
             initial={{ width: 0 }}
@@ -377,7 +453,7 @@ function ExercisePlayer({ exercise, onComplete, onClose }: { exercise: Exercise,
         </div>
 
         <div id="exercise-animation-container" className="aspect-square bg-gray-50 dark:bg-white/5 rounded-[32px] flex flex-col items-center justify-center mb-8 relative overflow-hidden">
-          <motion.div 
+          <motion.div
             key={currentStepIndex}
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
@@ -395,16 +471,16 @@ function ExercisePlayer({ exercise, onComplete, onClose }: { exercise: Exercise,
         </div>
 
         <div className="flex gap-4">
-          <Button 
+          <Button
             id="toggle-exercise-pause"
-            variant="outline" 
+            variant="outline"
             className="flex-1 py-4 rounded-2xl"
             onClick={() => setIsActive(!isActive)}
           >
             {isActive ? <Pause className="w-5 h-5 mr-2" /> : <Play className="w-5 h-5 mr-2" />}
             {isActive ? 'Pause' : 'Resume'}
           </Button>
-          <Button 
+          <Button
             id="skip-exercise"
             className="flex-1 py-4 rounded-2xl"
             onClick={onComplete}
@@ -417,7 +493,7 @@ function ExercisePlayer({ exercise, onComplete, onClose }: { exercise: Exercise,
   );
 }
 
-function HomeScreen({ onNavigate, reminders, user, exercises, medications, doseLogs, painLogs, onToggleExercise, onStartExercise }: { onNavigate: (screen: Screen) => void, reminders: Reminder[], user: AuthUser | null, exercises: Exercise[], medications: Medication[], doseLogs: DoseLog[], painLogs: {date: string, level: number}[], onToggleExercise: (id: string) => void, onStartExercise: () => void }) {
+function HomeScreen({ onNavigate, reminders, user, exercises, medications, doseLogs, painLogs, onToggleExercise, onStartExercise }: { onNavigate: (screen: Screen) => void, reminders: Reminder[], user: AuthUser | null, exercises: Exercise[], medications: Medication[], doseLogs: DoseLog[], painLogs: { date: string, level: number }[], onToggleExercise: (id: string) => void, onStartExercise: () => void }) {
   const [tipIndex, setTipIndex] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showCongrats, setShowCongrats] = useState(false);
@@ -439,22 +515,22 @@ function HomeScreen({ onNavigate, reminders, user, exercises, medications, doseL
 
   const currentDay = calculateCurrentDay(user?.startDate);
   const totalDays = user?.recoveryDays || 30;
-  
+
   const calculateProgress = () => {
     if (!user?.startDate || !user?.recoveryDays) return 0;
     const dayProgress = ((currentDay - 1) / totalDays) * 100;
-    
+
     const today = new Date().toDateString();
-    
+
     // Exercise compliance
     const completedToday = exercises.filter(ex => ex.completed).length;
     const totalToday = exercises.length || 1;
     const exRatio = completedToday / totalToday;
 
     // Medication compliance
-    const medsToday = medications.length;
+    const totalDosesExpected = medications.reduce((acc, med) => acc + (med.frequency || 1), 0);
     const takenToday = doseLogs.filter(log => new Date(log.timestamp).toDateString() === today).length;
-    const medsRatio = medsToday > 0 ? Math.min(1, takenToday / medsToday) : 1;
+    const medsRatio = totalDosesExpected > 0 ? Math.min(1, takenToday / totalDosesExpected) : 1;
 
     // Pain logged compliance
     const weekday = new Date().toLocaleDateString('en-US', { weekday: 'short' });
@@ -463,7 +539,7 @@ function HomeScreen({ onNavigate, reminders, user, exercises, medications, doseL
 
     const todayCompliance = (0.4 * exRatio) + (0.4 * medsRatio) + (0.2 * painRatio);
     const todayWeight = (1 / totalDays) * 100;
-    
+
     const totalProgress = dayProgress + (todayWeight * todayCompliance);
     return Math.min(100, Math.round(totalProgress));
   };
@@ -493,17 +569,17 @@ function HomeScreen({ onNavigate, reminders, user, exercises, medications, doseL
           </div>
         </div>
         <div className="flex items-center gap-3 absolute top-8 right-8">
-          <Button 
-            variant="ghost" 
-            size="icon" 
+          <Button
+            variant="ghost"
+            size="icon"
             className="bg-white dark:bg-dark-card shadow-sm"
             onClick={() => setShowNotifications(true)}
           >
             <Bell className="w-5 h-5" />
           </Button>
-          <Button 
-            variant="ghost" 
-            size="icon" 
+          <Button
+            variant="ghost"
+            size="icon"
             className="hidden md:flex bg-white dark:bg-dark-card shadow-sm"
             onClick={() => onNavigate('profile')}
           >
@@ -515,7 +591,7 @@ function HomeScreen({ onNavigate, reminders, user, exercises, medications, doseL
       <AnimatePresence>
         {showCongrats && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[300] flex items-center justify-center p-4">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.8, rotate: -5 }}
               animate={{ opacity: 1, scale: 1, rotate: 0 }}
               exit={{ opacity: 0, scale: 0.8 }}
@@ -529,13 +605,13 @@ function HomeScreen({ onNavigate, reminders, user, exercises, medications, doseL
               <Typography className="text-gray-600 dark:text-gray-400 text-lg mb-8">
                 You've completed all your tasks for today! You are recovering wonderfully from <span className="text-primary font-bold">{user?.recoveryFrom || 'your journey'}</span>.
               </Typography>
-              <Button 
+              <Button
                 className="w-full py-4 rounded-2xl bg-accent text-white font-bold text-lg shadow-lg shadow-accent/20 hover:scale-[1.02] transition-transform"
                 onClick={() => setShowCongrats(false)}
               >
                 Keep it up!
               </Button>
-              
+
               <div className="absolute -top-4 -left-4 w-12 h-12 text-accent opacity-20 rotate-12"><Sparkles /></div>
               <div className="absolute -bottom-4 -right-4 w-12 h-12 text-primary opacity-20 -rotate-12"><Sparkles /></div>
             </motion.div>
@@ -546,7 +622,7 @@ function HomeScreen({ onNavigate, reminders, user, exercises, medications, doseL
       <AnimatePresence>
         {showNotifications && (
           <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
@@ -597,23 +673,23 @@ function HomeScreen({ onNavigate, reminders, user, exercises, medications, doseL
             <Card className="bg-primary text-white p-8 relative overflow-hidden border-none shadow-2xl shadow-primary/20">
               <div className="relative z-10 space-y-6">
                 <div className="flex items-center gap-3">
-                  <div 
+                  <div
                     className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center backdrop-blur-md cursor-pointer hover:bg-white/20 transition-all relative"
                     onClick={() => setShowBubble(!showBubble)}
                   >
                     <Activity className="w-5 h-5 text-accent" />
-                    
+
                     <AnimatePresence>
                       {showBubble && (
-                        <motion.div 
+                        <motion.div
                           initial={{ opacity: 0, scale: 0.8, y: 10 }}
                           animate={{ opacity: 1, scale: 1, y: 0 }}
                           exit={{ opacity: 0, scale: 0.8, y: 10 }}
                           className="absolute bottom-full left-0 mb-4 w-48 p-4 bg-white dark:bg-dark-card rounded-2xl shadow-2xl z-50"
                         >
                           <Typography className="text-primary text-sm font-bold mb-2">Ready to start exercise?</Typography>
-                          <Button 
-                            size="sm" 
+                          <Button
+                            size="sm"
                             className="w-full py-2 rounded-xl text-[10px]"
                             onClick={(e) => {
                               e.stopPropagation();
@@ -635,12 +711,12 @@ function HomeScreen({ onNavigate, reminders, user, exercises, medications, doseL
                     You're doing great!
                   </Typography>
                   <Typography className="text-white/80 text-lg">
-                    {exercises.find(ex => !ex.completed) 
+                    {exercises.find(ex => !ex.completed)
                       ? `Your first exercise is: ${exercises.find(ex => !ex.completed)?.name}`
                       : "All exercises completed for today!"}
                   </Typography>
                 </div>
-                
+
                 {/* Daily Tasks Progress */}
                 <div className="space-y-4">
                   <div className="flex justify-between items-end">
@@ -648,7 +724,7 @@ function HomeScreen({ onNavigate, reminders, user, exercises, medications, doseL
                     <Typography className="text-white font-bold text-sm">{progressPercent}% Complete</Typography>
                   </div>
                   <div className="w-full bg-white/20 h-3 rounded-full overflow-hidden">
-                    <motion.div 
+                    <motion.div
                       initial={{ width: 0 }}
                       animate={{ width: `${progressPercent}%` }}
                       className="bg-accent h-full shadow-[0_0_15px_rgba(0,200,150,0.5)]"
@@ -671,7 +747,7 @@ function HomeScreen({ onNavigate, reminders, user, exercises, medications, doseL
               <Typography variant="caption" className="text-gray-400 hidden sm:block">Real-time recovery assistance</Typography>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-              <Card 
+              <Card
                 className="group relative flex flex-col gap-4 p-6 cursor-pointer border-none bg-white dark:bg-dark-card hover:shadow-2xl hover:shadow-accent/10 transition-all duration-500 overflow-hidden"
                 onClick={() => onNavigate('analyzer')}
               >
@@ -690,7 +766,7 @@ function HomeScreen({ onNavigate, reminders, user, exercises, medications, doseL
                 </div>
               </Card>
 
-              <Card 
+              <Card
                 className="group relative flex flex-col gap-4 p-6 cursor-pointer border-none bg-white dark:bg-dark-card hover:shadow-2xl hover:shadow-primary/10 transition-all duration-500 overflow-hidden"
                 onClick={() => onNavigate('assistant')}
               >
@@ -715,20 +791,23 @@ function HomeScreen({ onNavigate, reminders, user, exercises, medications, doseL
           <section className="space-y-4">
             <Typography variant="display" className="text-xl">Support & Care</Typography>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-              <Card 
+              <Card
+                id="exercise-home-card"
                 className="group flex items-center gap-4 p-5 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/5 transition-all"
-                onClick={() => onNavigate('elevate')}
+                onClick={() => onStartExercise()}
               >
-                <div className="w-12 h-12 rounded-xl bg-warning/10 flex items-center justify-center">
-                  <Heart className="text-warning w-6 h-6" />
+                <div className="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center transition-all group-hover:bg-accent">
+                  <Activity className="text-accent group-hover:text-white w-6 h-6 transition-colors" />
                 </div>
                 <div className="flex-1">
-                  <Typography variant="display" className="text-lg">Elevate Wellness</Typography>
-                  <Typography variant="caption" className="text-gray-500">Mood & mental health</Typography>
+                  <Typography variant="display" className="text-lg">Today's Exercises</Typography>
+                  <Typography variant="caption" className="text-gray-500">
+                    {exercises.filter(e => e.completed).length}/{exercises.length} completed today
+                  </Typography>
                 </div>
-                <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-warning transition-colors" />
+                <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-accent transition-colors" />
               </Card>
-              <Card 
+              <Card
                 className="group flex items-center gap-4 p-5 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/5 transition-all"
                 onClick={() => onNavigate('caregiver')}
               >
@@ -766,8 +845,8 @@ function HomeScreen({ onNavigate, reminders, user, exercises, medications, doseL
                   )}>
                     <div className={cn(
                       "w-12 h-12 rounded-2xl flex items-center justify-center transition-colors",
-                      reminder.completed 
-                        ? "bg-accent/10 text-accent" 
+                      reminder.completed
+                        ? "bg-accent/10 text-accent"
                         : reminder.type === 'medication' ? "bg-primary/10 text-primary" : "bg-secondary/10 text-secondary"
                     )}>
                       {reminder.type === 'medication' ? <Pill className="w-6 h-6" /> : <Activity className="w-6 h-6" />}
@@ -851,8 +930,15 @@ export default function App() {
   useEffect(() => {
     if (currentUser) {
       const recoveryType = currentUser.recoveryFrom || 'General';
-      const defaultEx = RECOVERY_EXERCISES[recoveryType] || RECOVERY_EXERCISES['General'];
-      
+
+      // Simple normalization to match keys in RECOVERY_EXERCISES
+      let exerciseKey = 'General';
+      if (recoveryType.toLowerCase().includes('hand')) exerciseKey = 'Hand Surgery';
+      else if (recoveryType.toLowerCase().includes('knee')) exerciseKey = 'Knee Replacement';
+      else if (RECOVERY_EXERCISES[recoveryType]) exerciseKey = recoveryType;
+
+      const defaultEx = RECOVERY_EXERCISES[exerciseKey] || RECOVERY_EXERCISES['General'];
+
       // Check which ones are completed today from logs
       const today = new Date().toDateString();
       const completedTodayIds = exerciseLogs
@@ -916,6 +1002,47 @@ export default function App() {
     localStorage.setItem('neuronova_users', JSON.stringify(users));
   }, [users]);
 
+  // Load user-specific data on login
+  useEffect(() => {
+    if (currentUser) {
+      const savedMeds = localStorage.getItem(`neuronova_meds_${currentUser.email}`);
+      const savedLogs = localStorage.getItem(`neuronova_logs_${currentUser.email}`);
+      const savedReminders = localStorage.getItem(`neuronova_reminders_${currentUser.email}`);
+
+      if (savedMeds) setMedications(JSON.parse(savedMeds));
+      else setMedications([]);
+
+      if (savedLogs) setDoseLogs(JSON.parse(savedLogs));
+      else setDoseLogs([]);
+
+      if (savedReminders) setReminders(JSON.parse(savedReminders));
+      else setReminders([]);
+    } else {
+      setMedications([]);
+      setDoseLogs([]);
+      // Don't clear reminders immediately to avoid flash, but handle in logout
+    }
+  }, [currentUser]);
+
+  // Save user-specific data on changes
+  useEffect(() => {
+    if (currentUser && medications.length > 0) {
+      localStorage.setItem(`neuronova_meds_${currentUser.email}`, JSON.stringify(medications));
+    }
+  }, [medications, currentUser]);
+
+  useEffect(() => {
+    if (currentUser && doseLogs.length > 0) {
+      localStorage.setItem(`neuronova_logs_${currentUser.email}`, JSON.stringify(doseLogs));
+    }
+  }, [doseLogs, currentUser]);
+
+  useEffect(() => {
+    if (currentUser && reminders.length > 0) {
+      localStorage.setItem(`neuronova_reminders_${currentUser.email}`, JSON.stringify(reminders));
+    }
+  }, [reminders, currentUser]);
+
   useEffect(() => {
     const cleanupCompletedUsers = () => {
       const now = new Date();
@@ -933,10 +1060,10 @@ export default function App() {
       if (updatedUsers.length !== users.length) {
         setUsers(updatedUsers);
         const activeEmails = updatedUsers.map(u => u.email);
-        setConnections(prev => prev.filter(c => 
+        setConnections(prev => prev.filter(c =>
           activeEmails.includes(c.patientEmail) && activeEmails.includes(c.caretakerEmail)
         ));
-        
+
         if (currentUser && !activeEmails.includes(currentUser.email)) {
           handleLogout();
         }
@@ -952,7 +1079,7 @@ export default function App() {
     const checkReminders = () => {
       const now = new Date();
       const currentTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-      
+
       const dueReminders = reminders.filter(r => {
         // Simple time match
         return r.time === currentTime && !r.completed && !activeNotifications.find(an => an.id === r.id);
@@ -976,10 +1103,10 @@ export default function App() {
 
   const handleSignUp = (user: AuthUser) => {
     const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-    const newUser = { 
-      ...user, 
-      connectionCode: code, 
-      startDate: new Date().toISOString() 
+    const newUser = {
+      ...user,
+      connectionCode: code,
+      startDate: new Date().toISOString()
     };
     setUsers([...users, newUser]);
     // Auto login after sign up
@@ -989,6 +1116,9 @@ export default function App() {
   const handleLogout = () => {
     setIsAuthenticated(false);
     setCurrentUser(null);
+    setMedications([]);
+    setDoseLogs([]);
+    setReminders([]);
     setCurrentScreen('home');
   };
 
@@ -1013,13 +1143,18 @@ export default function App() {
       taken: true
     };
     setDoseLogs([newLog, ...doseLogs]);
-    
-    // Update reminder if it exists for today
+
+    // Update only the first incomplete reminder if it exists for today
     const med = medications.find(m => m.id === medId);
     if (med) {
-      setReminders(reminders.map(r => 
-        r.title.includes(med.name) ? { ...r, completed: true } : r
-      ));
+      let marked = false;
+      setReminders(reminders.map(r => {
+        if (!marked && !r.completed && r.title.includes(med.name)) {
+          marked = true;
+          return { ...r, completed: true };
+        }
+        return r;
+      }));
     }
   };
 
@@ -1029,14 +1164,14 @@ export default function App() {
 
   const renderScreen = () => {
     switch (currentScreen) {
-      case 'home': 
-        return userRole === 'patient' 
+      case 'home':
+        return userRole === 'patient'
           ? (
             <>
-              <HomeScreen 
-                onNavigate={setCurrentScreen} 
-                reminders={reminders} 
-                user={currentUser} 
+              <HomeScreen
+                onNavigate={setCurrentScreen}
+                reminders={reminders}
+                user={currentUser}
                 exercises={exercises}
                 medications={medications}
                 doseLogs={doseLogs}
@@ -1049,7 +1184,7 @@ export default function App() {
               />
               <AnimatePresence>
                 {activeExerciseId && (
-                  <ExercisePlayer 
+                  <ExercisePlayer
                     exercise={exercises.find(ex => ex.id === activeExerciseId)!}
                     onComplete={() => handleCompleteExercise(activeExerciseId)}
                     onClose={() => setActiveExerciseId(null)}
@@ -1058,36 +1193,36 @@ export default function App() {
               </AnimatePresence>
             </>
           )
-          : <CaretakerHomeScreen 
-              onNavigate={setCurrentScreen} 
-              user={currentUser} 
-              reminders={reminders} 
-              allUsers={users} 
-              connections={connections}
-              onAddConnection={(patientEmail) => {
-                if (currentUser) {
-                  setConnections([...connections, { caretakerEmail: currentUser.email, patientEmail }]);
-                }
-              }}
-            />;
+          : <CaretakerHomeScreen
+            onNavigate={setCurrentScreen}
+            user={currentUser}
+            reminders={reminders}
+            allUsers={users}
+            connections={connections}
+            onAddConnection={(patientEmail) => {
+              if (currentUser) {
+                setConnections([...connections, { caretakerEmail: currentUser.email, patientEmail }]);
+              }
+            }}
+          />;
       case 'assistant': return <AssistantScreen />;
       case 'analyzer': return <AnalyzerScreen />;
-      case 'meds': return <MedicationsScreen 
-        meds={medications} 
-        logs={doseLogs} 
-        onAddMed={handleAddMedication} 
-        onTakeDose={handleTakeDose} 
+      case 'meds': return <MedicationsScreen
+        meds={medications}
+        logs={doseLogs}
+        onAddMed={handleAddMedication}
+        onTakeDose={handleTakeDose}
       />;
       case 'elevate': return <ElevateScreen />;
-      case 'caregiver': 
+      case 'caregiver':
         const caretakerConnection = connections.find(c => c.patientEmail === currentUser?.email);
         const caretaker = caretakerConnection ? users.find(u => u.email === caretakerConnection.caretakerEmail) : null;
         return <CaregiverScreen caretaker={caretaker || null} />;
       case 'progress': return (
-        <ProgressScreen 
-          user={currentUser} 
-          medications={medications} 
-          doseLogs={doseLogs} 
+        <ProgressScreen
+          user={currentUser}
+          medications={medications}
+          doseLogs={doseLogs}
           exercises={exercises}
           painLogs={painLogs}
           onLogPain={(level) => {
@@ -1100,13 +1235,13 @@ export default function App() {
         />
       );
       case 'profile': return <ProfileScreen user={currentUser} reminders={reminders} onLogout={handleLogout} />;
-      default: return userRole === 'patient' 
+      default: return userRole === 'patient'
         ? (
           <>
-            <HomeScreen 
-              onNavigate={setCurrentScreen} 
-              reminders={reminders} 
-              user={currentUser} 
+            <HomeScreen
+              onNavigate={setCurrentScreen}
+              reminders={reminders}
+              user={currentUser}
               exercises={exercises}
               medications={medications}
               doseLogs={doseLogs}
@@ -1119,7 +1254,7 @@ export default function App() {
             />
             <AnimatePresence>
               {activeExerciseId && (
-                <ExercisePlayer 
+                <ExercisePlayer
                   exercise={exercises.find(ex => ex.id === activeExerciseId)!}
                   onComplete={() => handleCompleteExercise(activeExerciseId)}
                   onClose={() => setActiveExerciseId(null)}
@@ -1128,24 +1263,24 @@ export default function App() {
             </AnimatePresence>
           </>
         )
-        : <CaretakerHomeScreen 
-            onNavigate={setCurrentScreen} 
-            user={currentUser} 
-            reminders={reminders} 
-            allUsers={users} 
-            connections={connections}
-            onAddConnection={(patientEmail) => {
-              if (currentUser) {
-                setConnections([...connections, { caretakerEmail: currentUser.email, patientEmail }]);
-              }
-            }}
-          />;
+        : <CaretakerHomeScreen
+          onNavigate={setCurrentScreen}
+          user={currentUser}
+          reminders={reminders}
+          allUsers={users}
+          connections={connections}
+          onAddConnection={(patientEmail) => {
+            if (currentUser) {
+              setConnections([...connections, { caretakerEmail: currentUser.email, patientEmail }]);
+            }
+          }}
+        />;
     }
   };
 
   return (
     <div className={cn("min-h-screen transition-colors duration-300 flex bg-surface text-gray-900")}>
-      
+
       {/* Notifications Overlay */}
       <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[200] w-full max-w-md space-y-2 px-4">
         <AnimatePresence>
@@ -1166,9 +1301,9 @@ export default function App() {
                   <Typography variant="caption" className="text-white/70">Scheduled for {notif.time}</Typography>
                 </div>
               </div>
-              <Button 
-                size="sm" 
-                variant="ghost" 
+              <Button
+                size="sm"
+                variant="ghost"
                 className="text-white hover:bg-white/20"
                 onClick={() => setActiveNotifications(prev => prev.filter(an => an.id !== notif.id))}
               >
@@ -1187,17 +1322,21 @@ export default function App() {
           </div>
           <Typography variant="display" className="text-xl hidden lg:block">NeuroNova</Typography>
         </div>
-        
+
         <div className="flex-1 px-4 space-y-2">
           <SidebarItem active={currentScreen === 'home'} onClick={() => setCurrentScreen('home')} icon={Home} label="Dashboard" />
-          <SidebarItem active={currentScreen === 'meds'} onClick={() => setCurrentScreen('meds')} icon={Pill} label="Medications" />
-          <SidebarItem active={currentScreen === 'assistant'} onClick={() => setCurrentScreen('assistant')} icon={Brain} label="AI Assistant" />
-          <SidebarItem active={currentScreen === 'progress'} onClick={() => setCurrentScreen('progress')} icon={Activity} label="Recovery Stats" />
+          {userRole === 'patient' && (
+            <>
+              <SidebarItem active={currentScreen === 'meds'} onClick={() => setCurrentScreen('meds')} icon={Pill} label="Medications" />
+              <SidebarItem active={currentScreen === 'assistant'} onClick={() => setCurrentScreen('assistant')} icon={Brain} label="AI Assistant" />
+              <SidebarItem active={currentScreen === 'progress'} onClick={() => setCurrentScreen('progress')} icon={Activity} label="Recovery Stats" />
+            </>
+          )}
         </div>
 
         <div className="px-4 mt-auto space-y-2">
           <SidebarItem active={currentScreen === 'profile'} onClick={() => setCurrentScreen('profile')} icon={Settings} label="Settings" />
-          <button 
+          <button
             onClick={handleLogout}
             className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-400 hover:bg-red-50 transition-all"
           >
@@ -1227,26 +1366,34 @@ export default function App() {
       <nav className="fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-dark-card/80 backdrop-blur-xl border-t border-black/5 dark:border-white/5 px-6 py-4 z-40 md:hidden">
         <div className="max-w-md mx-auto flex items-center justify-between">
           <NavButton active={currentScreen === 'home'} onClick={() => setCurrentScreen('home')} icon={Home} label="Home" />
-          <NavButton active={currentScreen === 'meds'} onClick={() => setCurrentScreen('meds')} icon={Pill} label="Meds" />
-          <div className="relative -top-8">
-            <button 
-              onClick={() => setCurrentScreen('assistant')}
-              className={cn(
-                "w-16 h-16 rounded-full flex items-center justify-center shadow-xl transition-all active:scale-90",
-                currentScreen === 'assistant' ? "bg-accent text-white" : "bg-primary text-white"
-              )}
-            >
-              <Brain className="w-8 h-8" />
-            </button>
-          </div>
-          <NavButton active={currentScreen === 'elevate'} onClick={() => setCurrentScreen('elevate')} icon={Heart} label="Elevate" />
-          <NavButton active={currentScreen === 'progress'} onClick={() => setCurrentScreen('progress')} icon={Activity} label="Stats" />
+          {userRole === 'patient' ? (
+            <>
+              <NavButton active={currentScreen === 'meds'} onClick={() => setCurrentScreen('meds')} icon={Pill} label="Meds" />
+              <div className="relative -top-8">
+                <button
+                  onClick={() => setCurrentScreen('assistant')}
+                  className={cn(
+                    "w-16 h-16 rounded-full flex items-center justify-center shadow-xl transition-all active:scale-90",
+                    currentScreen === 'assistant' ? "bg-accent text-white" : "bg-primary text-white"
+                  )}
+                >
+                  <Brain className="w-8 h-8" />
+                </button>
+              </div>
+              <NavButton active={currentScreen === 'elevate'} onClick={() => setCurrentScreen('elevate')} icon={Heart} label="Elevate" />
+              <NavButton active={currentScreen === 'progress'} onClick={() => setCurrentScreen('progress')} icon={Activity} label="Stats" />
+            </>
+          ) : (
+            <div className="flex justify-center flex-1">
+              <NavButton active={currentScreen === 'profile'} onClick={() => setCurrentScreen('profile')} icon={User} label="Profile" />
+            </div>
+          )}
         </div>
       </nav>
 
       {/* Floating Action Button for Profile (Mobile Only) */}
       <div className="fixed top-8 right-4 z-50 md:hidden">
-        <button 
+        <button
           onClick={() => setCurrentScreen('profile')}
           className="w-10 h-10 rounded-full bg-white dark:bg-dark-card shadow-md flex items-center justify-center border border-black/5"
         >
@@ -1259,12 +1406,12 @@ export default function App() {
 
 function SidebarItem({ active, onClick, icon: Icon, label }: { active: boolean, onClick: () => void, icon: any, label: string }) {
   return (
-    <button 
+    <button
       onClick={onClick}
       className={cn(
         "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all group",
-        active 
-          ? "bg-primary text-white shadow-lg shadow-primary/20" 
+        active
+          ? "bg-primary text-white shadow-lg shadow-primary/20"
           : "text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5"
       )}
     >
@@ -1276,7 +1423,7 @@ function SidebarItem({ active, onClick, icon: Icon, label }: { active: boolean, 
 
 function NavButton({ active, onClick, icon: Icon, label }: { active: boolean, onClick: () => void, icon: any, label: string }) {
   return (
-    <button 
+    <button
       onClick={onClick}
       className={cn(
         "flex flex-col items-center gap-1 transition-all",

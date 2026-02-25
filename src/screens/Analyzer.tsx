@@ -66,8 +66,8 @@ export function AnalyzerScreen() {
 
     setIsAnalyzing(true);
     try {
-      const model = "gemini-3-flash-preview";
-      
+      const model = "gemini-1.5-flash";
+
       let prompt = `You are a medical recovery assistant. Analyze the following symptom report (text and/or image). 
       Provide a structured response in JSON format including:
       - analysis: A brief explanation of what might be happening.
@@ -79,7 +79,7 @@ export function AnalyzerScreen() {
       User Report: ${text || "See attached image"}`;
 
       const parts: any[] = [{ text: prompt }];
-      
+
       if (image) {
         parts.push({
           inlineData: {
@@ -146,7 +146,7 @@ export function AnalyzerScreen() {
             className="space-y-4"
           >
             <Card className="p-0 overflow-hidden">
-              <div 
+              <div
                 className="aspect-video bg-gray-100 dark:bg-dark-surface flex flex-col items-center justify-center cursor-pointer hover:bg-gray-200 dark:hover:bg-dark-surface/80 transition-colors relative"
                 onClick={() => fileInputRef.current?.click()}
               >
@@ -158,12 +158,12 @@ export function AnalyzerScreen() {
                     <Typography variant="caption">Tap to take a photo of the area</Typography>
                   </>
                 )}
-                <input 
-                  type="file" 
-                  ref={fileInputRef} 
-                  className="hidden" 
-                  accept="image/*" 
-                  onChange={handleImageUpload} 
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  className="hidden"
+                  accept="image/*"
+                  onChange={handleImageUpload}
                 />
               </div>
               <div className="p-4 relative">
@@ -177,8 +177,8 @@ export function AnalyzerScreen() {
                   onClick={startListening}
                   className={cn(
                     "absolute right-4 bottom-4 p-2 rounded-full transition-all",
-                    isListening 
-                      ? "bg-red-500 text-white animate-pulse" 
+                    isListening
+                      ? "bg-red-500 text-white animate-pulse"
                       : "bg-gray-100 dark:bg-dark-surface text-gray-400 hover:text-primary"
                   )}
                 >
@@ -187,7 +187,7 @@ export function AnalyzerScreen() {
               </div>
             </Card>
 
-            <Button 
+            <Button
               className="w-full py-4 rounded-2xl text-lg font-semibold"
               disabled={(!image && !text) || isAnalyzing}
               onClick={analyzeSymptom}
@@ -222,7 +222,7 @@ export function AnalyzerScreen() {
                 <Typography variant="caption" className="uppercase tracking-wider mb-1">Analysis</Typography>
                 <Typography>{result.analysis}</Typography>
               </div>
-              
+
               <div>
                 <Typography variant="caption" className="uppercase tracking-wider mb-1">Guidance</Typography>
                 <Typography className="text-primary dark:text-secondary font-medium">{result.guidance}</Typography>
@@ -246,8 +246,8 @@ export function AnalyzerScreen() {
               ))}
             </div>
 
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               className="w-full border-2"
               onClick={() => setResult(null)}
             >
@@ -256,7 +256,7 @@ export function AnalyzerScreen() {
           </motion.div>
         )}
       </AnimatePresence>
-      
+
       <Typography variant="caption" className="text-center block px-4 opacity-50">
         Disclaimer: NeuroNova is an AI assistant and not a substitute for professional medical advice. Always contact your doctor for emergencies.
       </Typography>

@@ -28,6 +28,7 @@ export interface Medication {
 export interface DoseLog {
   id: string;
   medicationId: string;
+  medicationName?: string;
   timestamp: string;
   taken: boolean;
 }

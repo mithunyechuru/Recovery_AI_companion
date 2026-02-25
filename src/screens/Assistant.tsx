@@ -30,7 +30,7 @@ export function AssistantScreen() {
     setIsSpeaking(true);
 
     try {
-      const model = "gemini-3-flash-preview";
+      const model = "gemini-1.5-flash";
       const chat = genAI.chats.create({
         model,
         config: {
@@ -59,7 +59,7 @@ export function AssistantScreen() {
         </div>
       </div>
 
-      <div 
+      <div
         ref={scrollRef}
         className="flex-1 overflow-y-auto space-y-4 pr-2 scrollbar-hide"
       >
@@ -76,8 +76,8 @@ export function AssistantScreen() {
             >
               <div className={cn(
                 "max-w-[85%] p-4 rounded-2xl",
-                msg.role === 'user' 
-                  ? "bg-primary text-white rounded-tr-none" 
+                msg.role === 'user'
+                  ? "bg-primary text-white rounded-tr-none"
                   : "bg-white dark:bg-dark-card shadow-sm border border-black/5 dark:border-white/10 rounded-tl-none"
               )}>
                 <Typography>{msg.content}</Typography>
@@ -86,7 +86,7 @@ export function AssistantScreen() {
           ))}
         </AnimatePresence>
         {isSpeaking && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             className="flex gap-1 p-2"
@@ -126,16 +126,16 @@ export function AssistantScreen() {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSend(input)}
             />
-            <Button 
-              variant={isListening ? "danger" : "ghost"} 
+            <Button
+              variant={isListening ? "danger" : "ghost"}
               size="icon"
               onClick={() => setIsListening(!isListening)}
             >
               {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
             </Button>
           </Card>
-          <Button 
-            size="icon" 
+          <Button
+            size="icon"
             className="h-12 w-12 rounded-2xl"
             onClick={() => handleSend(input)}
             disabled={!input.trim()}
@@ -163,8 +163,8 @@ export function AssistantScreen() {
           </div>
           <Typography variant="display" className="text-2xl mb-2">Listening...</Typography>
           <Typography className="opacity-70 mb-12">"Tell me about your pain level"</Typography>
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             className="text-white border border-white/20 px-8"
             onClick={() => setIsListening(false)}
           >
