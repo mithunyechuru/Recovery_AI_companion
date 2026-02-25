@@ -453,20 +453,36 @@ function ExercisePlayer({ exercise, onComplete, onClose }: { exercise: Exercise,
         </div>
 
         <div id="exercise-animation-container" className="aspect-square bg-gray-50 dark:bg-white/5 rounded-[32px] flex flex-col items-center justify-center mb-8 relative overflow-hidden">
-          <motion.div
-            key={currentStepIndex}
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="text-center space-y-4"
-          >
-            <div className="w-32 h-32 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
-              <Activity className={cn("w-16 h-16 text-primary", isActive && "animate-pulse")} />
+          {exercise.videoUrl ? (
+            <div className="absolute inset-0 flex items-center justify-center bg-white dark:bg-dark-surface p-4">
+              <img
+                src={exercise.videoUrl}
+                alt={exercise.name}
+                className={cn(
+                  "w-full h-full object-contain rounded-2xl transition-all",
+                  !isActive && "opacity-50 grayscale"
+                )}
+              />
+              <div className="absolute bottom-4 left-4 right-4 bg-primary/95 backdrop-blur-sm p-4 rounded-2xl border border-white/20 shadow-xl">
+                <Typography variant="display" className="text-xl text-white text-center uppercase tracking-widest">{currentStep?.label}</Typography>
+              </div>
             </div>
-            <Typography variant="display" className="text-3xl text-primary uppercase tracking-widest">{currentStep?.label}</Typography>
-          </motion.div>
+          ) : (
+            <motion.div
+              key={currentStepIndex}
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="text-center space-y-4"
+            >
+              <div className="w-32 h-32 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
+                <Activity className={cn("w-16 h-16 text-primary", isActive && "animate-pulse")} />
+              </div>
+              <Typography variant="display" className="text-3xl text-primary uppercase tracking-widest">{currentStep?.label}</Typography>
+            </motion.div>
+          )}
 
-          <div className="absolute bottom-8 text-center w-full">
-            <Typography id="exercise-timer" variant="display" className="text-5xl font-mono">{timeLeft}s</Typography>
+          <div className="absolute top-8 right-8 bg-black/40 backdrop-blur-md px-4 py-2 rounded-full border border-white/10">
+            <Typography id="exercise-timer" variant="display" className="text-2xl font-mono text-white">{timeLeft}s</Typography>
           </div>
         </div>
 
@@ -1320,7 +1336,7 @@ export default function App() {
           <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
             <Brain className="text-white w-6 h-6" />
           </div>
-          <Typography variant="display" className="text-xl hidden lg:block">NeuroNova</Typography>
+          <Typography variant="display" className="text-xl hidden lg:block">Fade Fit</Typography>
         </div>
 
         <div className="flex-1 px-4 space-y-2">

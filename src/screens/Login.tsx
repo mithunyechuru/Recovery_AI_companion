@@ -80,7 +80,7 @@ export function LoginScreen({ onLogin, onSignUp, users }: LoginProps) {
         >
           <div className="w-full max-w-sm flex flex-col items-center">
             <Typography variant="display" className="text-4xl text-gray-900 mb-2 font-bold">Sign In</Typography>
-            <Typography variant="caption" className="mb-8 text-gray-500">Welcome back to NeuroNova</Typography>
+            <Typography variant="caption" className="mb-8 text-gray-500">Welcome back to Fade Fit</Typography>
 
             <div className="w-full space-y-4">
               <div className="relative">

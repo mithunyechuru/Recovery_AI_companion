@@ -1,14 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Mic, MicOff, Send, Volume2, VolumeX, Sparkles, Brain } from 'lucide-react';
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { Card, Button, Typography, cn } from '../components/UI';
 
-const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+const getApiKey = () => {
+  return (import.meta as any).env.VITE_GEMINI_API_KEY || '';
+};
 
 export function AssistantScreen() {
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [ttsEnabled, setTtsEnabled] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [messages, setMessages] = useState<{ role: 'user' | 'ai', content: string }[]>([
     { role: 'ai', content: "Hi Alex, I'm your recovery companion. How are you feeling today?" }
   ]);
@@ -21,29 +25,81 @@ export function AssistantScreen() {
     }
   }, [messages]);
 
-  const handleSend = async (text: string) => {
-    if (!text.trim()) return;
+  const speak = (text: string) => {
+    if (!ttsEnabled) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 1.0;
+    utterance.pitch = 1.0;
+    utterance.onstart = () => setIsSpeaking(true);
+    utterance.onend = () => setIsSpeaking(false);
+    window.speechSynthesis.speak(utterance);
+  };
 
+  const startListening = () => {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      alert("Speech recognition is not supported in this browser.");
+      return;
+    }
+
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = 'en-US';
+
+    recognition.onstart = () => setIsListening(true);
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setInput(transcript);
+      handleSend(transcript);
+      setIsListening(false);
+    };
+    recognition.onerror = () => setIsListening(false);
+    recognition.onend = () => setIsListening(false);
+
+    recognition.start();
+  };
+
+  const handleSend = async (text: string) => {
+    const key = getApiKey();
+    if (!key) {
+      setError("AI Configuration Error: API Key is missing. Please ensure VITE_GEMINI_API_KEY is set in your .env file.");
+      return;
+    }
     const newMessages = [...messages, { role: 'user' as const, content: text }];
     setMessages(newMessages);
     setInput('');
-    setIsSpeaking(true);
 
     try {
-      const model = "gemini-1.5-flash";
-      const chat = genAI.chats.create({
-        model,
-        config: {
-          systemInstruction: "You are NeuroNova, a compassionate AI recovery assistant for someone recovering from ACL surgery. Be brief, encouraging, and medical-focused but friendly. Use the user's name Alex."
-        }
+      const apiKey = (import.meta as any).env.VITE_GEMINI_API_KEY;
+      if (!apiKey) {
+        setError("AI Configuration Error: API Key is missing. Please check your .env file.");
+        return;
+      }
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const model = genAI.getGenerativeModel({
+        model: "gemini-1.5-flash",
+        systemInstruction: "You are Fade Fit, a compassionate AI recovery assistant for someone recovering from ACL surgery. Be brief, encouraging, and medical-focused but friendly. Use the user's name Alex."
       });
 
-      const response = await chat.sendMessage({ message: text });
-      setMessages([...newMessages, { role: 'ai', content: response.text || "I'm here to help." }]);
-    } catch (error) {
-      console.error("AI Error:", error);
-    } finally {
-      setIsSpeaking(false);
+      const chat = model.startChat({
+        history: messages.map(msg => ({
+          role: msg.role === 'ai' ? 'model' : 'user',
+          parts: [{ text: msg.content }]
+        }))
+      });
+
+      const result = await chat.sendMessage(text);
+      const aiText = result.response.text() || "I'm here to help.";
+      setMessages([...newMessages, { role: 'ai', content: aiText }]);
+      speak(aiText);
+      setError(null);
+    } catch (err: any) {
+      console.error("AI Error:", err);
+      const errMsg = err?.message || "I'm having trouble connecting right now.";
+      setError(`AI Error: ${errMsg}`);
     }
   };
 
@@ -53,9 +109,20 @@ export function AssistantScreen() {
         <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center">
           <Brain className="text-white w-6 h-6" />
         </div>
-        <div>
-          <Typography variant="display" className="text-xl">NeuroNova AI</Typography>
-          <Typography variant="caption" className="text-accent">Online & Ready</Typography>
+        <div className="flex-1">
+          <Typography variant="display" className="text-xl">Fade Fit AI</Typography>
+          <div className="flex items-center gap-2">
+            <Typography variant="caption" className="text-accent">Online & Ready</Typography>
+            <button
+              onClick={() => setTtsEnabled(!ttsEnabled)}
+              className={cn(
+                "p-1 rounded-md transition-colors",
+                ttsEnabled ? "text-primary bg-primary/10" : "text-gray-400 bg-gray-100 dark:bg-dark-surface"
+              )}
+            >
+              {ttsEnabled ? <Volume2 className="w-3 h-3" /> : <VolumeX className="w-3 h-3" />}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -85,6 +152,17 @@ export function AssistantScreen() {
             </motion.div>
           ))}
         </AnimatePresence>
+        {error && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="flex justify-center p-2"
+          >
+            <div className="bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 text-xs px-4 py-2 rounded-full border border-red-200 dark:border-red-800">
+              {error}
+            </div>
+          </motion.div>
+        )}
         {isSpeaking && (
           <motion.div
             initial={{ opacity: 0 }}
@@ -129,7 +207,7 @@ export function AssistantScreen() {
             <Button
               variant={isListening ? "danger" : "ghost"}
               size="icon"
-              onClick={() => setIsListening(!isListening)}
+              onClick={startListening}
             >
               {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
             </Button>

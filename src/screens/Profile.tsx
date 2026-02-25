@@ -63,8 +63,8 @@ export function ProfileScreen({ user, reminders, onLogout }: ProfileProps) {
             { icon: Bell, title: "Notifications", color: "text-orange-500", onClick: () => setShowNotifications(true) },
             { icon: Shield, title: "Privacy & Data", color: "text-accent", onClick: () => setShowPrivacy(true) },
           ].map((item, i) => (
-            <Card 
-              key={i} 
+            <Card
+              key={i}
               className="flex items-center gap-4 py-4 hover:bg-gray-50 transition-colors cursor-pointer"
               onClick={item.onClick}
             >
@@ -78,8 +78,8 @@ export function ProfileScreen({ user, reminders, onLogout }: ProfileProps) {
         </div>
       </div>
 
-      <Button 
-        variant="ghost" 
+      <Button
+        variant="ghost"
         className="w-full text-warning hover:bg-warning/10 py-4 mt-4"
         onClick={onLogout}
       >
@@ -88,13 +88,13 @@ export function ProfileScreen({ user, reminders, onLogout }: ProfileProps) {
       </Button>
 
       <Typography variant="caption" className="text-center block opacity-30">
-        NeuroNova v1.0.4 • Made with ❤️ for your recovery
+        Fade Fit v1.0.4 • Made with ❤️ for your recovery
       </Typography>
 
       <AnimatePresence>
         {showPersonalInfo && (
           <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
@@ -160,7 +160,7 @@ export function ProfileScreen({ user, reminders, onLogout }: ProfileProps) {
       <AnimatePresence>
         {showPrivacy && (
           <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.9 }}
@@ -185,8 +185,8 @@ export function ProfileScreen({ user, reminders, onLogout }: ProfileProps) {
                 <div className="space-y-4">
                   <Typography className="text-sm font-medium">Your Data Control</Typography>
                   <Typography variant="caption" className="block">
-                    • Your data is stored locally on this device.<br/>
-                    • Only connected caregivers can view your progress.<br/>
+                    • Your data is stored locally on this device.<br />
+                    • Only connected caregivers can view your progress.<br />
                     • You can revoke caregiver access at any time.
                   </Typography>
                 </div>
@@ -202,7 +202,7 @@ export function ProfileScreen({ user, reminders, onLogout }: ProfileProps) {
       <AnimatePresence>
         {showNotifications && (
           <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}

@@ -1,17 +1,21 @@
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Camera, Upload, AlertCircle, CheckCircle2, RefreshCw, ChevronRight, X, Activity, Mic, MicOff } from 'lucide-react';
-import { GoogleGenAI, Type } from "@google/genai";
+import { Camera, Upload, AlertCircle, CheckCircle2, RefreshCw, ChevronRight, X, Activity, Mic, MicOff, Volume2, VolumeX } from 'lucide-react';
+import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import { Card, Button, Typography, cn } from '../components/UI';
 import { AnalysisResult, AssessmentLevel } from '../types';
 
-const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+const getApiKey = () => {
+  return (import.meta as any).env.VITE_GEMINI_API_KEY || '';
+};
 
 export function AnalyzerScreen() {
   const [image, setImage] = useState<string | null>(null);
   const [text, setText] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [ttsEnabled, setTtsEnabled] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -64,24 +68,47 @@ export function AnalyzerScreen() {
   const analyzeSymptom = async () => {
     if (!image && !text) return;
 
+    const key = getApiKey();
+    if (!key) {
+      setError("AI Configuration Error: API Key is missing. Please ensure VITE_GEMINI_API_KEY is set in your .env file.");
+      return;
+    }
+
     setIsAnalyzing(true);
     try {
-      const model = "gemini-1.5-flash";
+      const apiKey = getApiKey();
+      if (!apiKey) {
+        setError("AI Configuration Error: API Key is missing. Please check your .env file.");
+        return;
+      }
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const model = genAI.getGenerativeModel({
+        model: "gemini-1.5-flash",
+        generationConfig: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: SchemaType.OBJECT,
+            properties: {
+              analysis: { type: SchemaType.STRING },
+              assessment: { type: SchemaType.STRING },
+              guidance: { type: SchemaType.STRING },
+              reassurance: { type: SchemaType.STRING },
+              actionSteps: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } }
+            },
+            required: ["analysis", "assessment", "guidance", "reassurance", "actionSteps"]
+          }
+        }
+      });
 
       let prompt = `You are a medical recovery assistant. Analyze the following symptom report (text and/or image). 
-      Provide a structured response in JSON format including:
-      - analysis: A brief explanation of what might be happening.
-      - assessment: One of "NORMAL", "MONITOR", "MEDICAL_ATTENTION", "EMERGENCY".
-      - guidance: Practical advice for the user.
-      - reassurance: A calming message.
-      - actionSteps: An array of 3-4 clear next steps.
+      Provide a structured response.
       
       User Report: ${text || "See attached image"}`;
 
-      const parts: any[] = [{ text: prompt }];
+      const contents: any[] = [{ text: prompt }];
 
       if (image) {
-        parts.push({
+        contents.push({
           inlineData: {
             data: image.split(',')[1],
             mimeType: "image/jpeg"
@@ -89,32 +116,29 @@ export function AnalyzerScreen() {
         });
       }
 
-      const response = await genAI.models.generateContent({
-        model,
-        contents: [{ parts }],
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              analysis: { type: Type.STRING },
-              assessment: { type: Type.STRING },
-              guidance: { type: Type.STRING },
-              reassurance: { type: Type.STRING },
-              actionSteps: { type: Type.ARRAY, items: { type: Type.STRING } }
-            },
-            required: ["analysis", "assessment", "guidance", "reassurance", "actionSteps"]
-          }
-        }
+      const result = await model.generateContent({
+        contents: [{ role: 'user', parts: contents }]
       });
 
-      const data = JSON.parse(response.text || '{}') as AnalysisResult;
+      const data = JSON.parse(result.response.text() || '{}') as AnalysisResult;
       setResult(data);
-    } catch (error) {
-      console.error("Analysis failed:", error);
+      setError(null);
+      if (ttsEnabled) {
+        speak(data.analysis + ". " + data.guidance);
+      }
+    } catch (err: any) {
+      console.error("Analysis failed:", err);
+      const errMsg = err?.message || "Analysis failed. Please try again.";
+      setError(`Analysis Error: ${errMsg}`);
     } finally {
       setIsAnalyzing(false);
     }
+  };
+
+  const speak = (text: string) => {
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    window.speechSynthesis.speak(utterance);
   };
 
   const getAssessmentColor = (level: AssessmentLevel) => {
@@ -131,9 +155,20 @@ export function AnalyzerScreen() {
     <div className="space-y-6 pb-20">
       <div className="flex items-center justify-between">
         <Typography as="h2" variant="display" className="text-2xl">Symptom Analyzer</Typography>
-        <Button variant="ghost" size="icon" onClick={() => { setImage(null); setText(''); setResult(null); }}>
-          <RefreshCw className="w-5 h-5" />
-        </Button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setTtsEnabled(!ttsEnabled)}
+            className={cn(
+              "p-2 rounded-xl transition-colors",
+              ttsEnabled ? "text-primary bg-primary/10" : "text-gray-400 bg-gray-100"
+            )}
+          >
+            {ttsEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+          </button>
+          <Button variant="ghost" size="icon" onClick={() => { setImage(null); setText(''); setResult(null); }}>
+            <RefreshCw className="w-5 h-5" />
+          </Button>
+        </div>
       </div>
 
       <AnimatePresence mode="wait">
@@ -257,8 +292,19 @@ export function AnalyzerScreen() {
         )}
       </AnimatePresence>
 
+      {error && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="p-4 bg-red-50 dark:bg-red-900/10 rounded-2xl border border-red-100 dark:border-red-800 flex items-center gap-3 text-red-600 dark:text-red-400"
+        >
+          <AlertCircle className="w-5 h-5 flex-shrink-0" />
+          <Typography variant="caption">{error}</Typography>
+        </motion.div>
+      )}
+
       <Typography variant="caption" className="text-center block px-4 opacity-50">
-        Disclaimer: NeuroNova is an AI assistant and not a substitute for professional medical advice. Always contact your doctor for emergencies.
+        Disclaimer: Fade Fit is an AI assistant and not a substitute for professional medical advice. Always contact your doctor for emergencies.
       </Typography>
     </div>
   );

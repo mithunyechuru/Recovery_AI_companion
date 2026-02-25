@@ -54,6 +54,7 @@ export interface Exercise {
   completed: boolean;
   steps?: ExerciseStep[];
   type?: string; // e.g., 'hand', 'knee', 'ankle'
+  videoUrl?: string;
 }
 
 export interface ExerciseLog {

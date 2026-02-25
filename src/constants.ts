@@ -42,16 +42,18 @@ export const DAILY_TIPS = [
 
 export const RECOVERY_EXERCISES: Record<string, Exercise[]> = {
   'Hand Surgery': [
-    { 
+    {
       id: 'h1', name: 'Hand Clenches', reps: '10 reps', sets: 3, completed: false, type: 'hand',
+      videoUrl: 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExOHp1eXR6eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4JmVwPXYxX2ludGVybmFsX2dpZl9ieV9pZCZjdD1n/3o7TKquOOpO3L9Vp04/giphy.gif',
       steps: [
         { label: 'Close Hand', duration: 3 },
         { label: 'Hold', duration: 2 },
         { label: 'Open Hand', duration: 3 }
       ]
     },
-    { 
+    {
       id: 'h2', name: 'Finger Stretches', reps: '5 reps', sets: 2, completed: false, type: 'hand',
+      videoUrl: 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExOHp1eXR6eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4JmVwPXYxX2ludGVybmFsX2dpZl9ieV9pZCZjdD1n/l0HlIDU1B7W2I6W40/giphy.gif',
       steps: [
         { label: 'Stretch Fingers', duration: 5 },
         { label: 'Relax', duration: 3 }
@@ -59,16 +61,18 @@ export const RECOVERY_EXERCISES: Record<string, Exercise[]> = {
     }
   ],
   'Knee Replacement': [
-    { 
+    {
       id: 'k1', name: 'Knee Extensions', reps: '10 reps', sets: 3, completed: false, type: 'knee',
+      videoUrl: 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExOHp1eXR6eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4JmVwPXYxX2ludGVybmFsX2dpZl9ieV9pZCZjdD1n/3o7TKVUn7iM8FMEU24/giphy.gif',
       steps: [
         { label: 'Extend Leg', duration: 4 },
         { label: 'Hold', duration: 2 },
         { label: 'Lower Leg', duration: 4 }
       ]
     },
-    { 
+    {
       id: 'k2', name: 'Ankle Pumps', reps: '20 reps', sets: 2, completed: false, type: 'knee',
+      videoUrl: 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExOHp1eXR6eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4JmVwPXYxX2ludGVybmFsX2dpZl9ieV9pZCZjdD1n/3o7TKp5O6hX6R0pT8Y/giphy.gif',
       steps: [
         { label: 'Flex Ankle', duration: 3 },
         { label: 'Hold', duration: 1 },
@@ -77,7 +81,7 @@ export const RECOVERY_EXERCISES: Record<string, Exercise[]> = {
     }
   ],
   'General': [
-    { 
+    {
       id: 'g1', name: 'Deep Breathing', reps: '10 reps', sets: 3, completed: false, type: 'general',
       steps: [
         { label: 'Inhale Deeply', duration: 4 },
